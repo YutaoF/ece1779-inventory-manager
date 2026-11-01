@@ -1,14 +1,14 @@
 # Project Proposal: Cloud Inventory Manager
 
-**Team members:** [Name 1], [Name 2], [Name 3], [Name 4]
+**Team members:** Justin Zhang, Pete Chen, Yutau Fu, Zavi Jawaid
 
 ## 1. Motivation
 
-Many small organizations, such as student clubs, research labs, makerspaces, small shops and food banks, track physical inventory with a shared spreadsheet. This works until several people update stock at the same time. Counts drift, nobody knows who removed what or why, and items run out before anyone notices.
+Many small organizations, such as small shops and food banks, track physical inventory with a shared spreadsheet. This works until several people update stock at the same time. Counts tend to drift, nobody knows who removed what or why, and items run out.
 
 We have two groups of users in mind. **Managers** decide what is stocked, where it is kept and when to reorder. **Staff or volunteers** receive and hand out items day to day. Both need to trust that the number on the screen matches the shelf.
 
-Existing options sit at two extremes. Spreadsheets are free and familiar but have no concurrency control, no meaningful permissions and no reliable change history. Commercial inventory systems solve these problems but are usually too expensive or heavy for a group of a dozen people. We see room for a small, focused tool that keeps an accurate shared record, shows changes as they happen, and never loses its history.
+The existing options sit at two opposite ends. Spreadsheets are free and familiar but have no meaningful permissions and no reliable change history. Commercial inventory systems solve these problems but are usually too expensive and complex or heavy for a group of a dozen people. We see room for a small, focused tool that keeps an accurate shared record, shows changes as they happen, and never loses its history.
 
 The problem also fits the course well: inventory is stateful by nature, so concurrency, persistence and recovery are core requirements of the application itself.
 
@@ -16,17 +16,17 @@ The problem also fits the course well: inventory is stateful by nature, so concu
 
 ### 2.1 Objectives
 
-1. Provide a shared, accurate view of how much of each product is at each location.
-2. Make every stock change traceable: who, when and why.
+1. Ensure that the provided shared view is accurate in how much of each product is at each location.
+2. Provide a traceable history for every stock change: who, when and why.
 3. Keep stock correct when several users act at once, with no negative stock and no lost updates.
 4. Run the system as a replicated, monitored service on DigitalOcean whose data survives restarts and redeployments.
 
 ### 2.2 Core Features
 
 - **Accounts and roles.** Individual logins with a Manager or Staff role. Staff handle daily stock actions; Managers also manage products, locations, accounts, thresholds and corrections. Permissions are enforced on the backend.
-- **Products and locations.** Products have a unique SKU, name, category and description, and stock is tracked per product per location. Products are archived, not deleted, so their history is kept.
+- **Products and locations.** Products have a unique SKU (alphanumeric code), name, category and description, and stock is tracked per product per location. Products are archived, not deleted, so their history is kept.
 - **Stock operations.** Receive, issue and transfer stock; Managers can also make corrections with a required reason. Operations that would make stock negative are rejected.
-- **Movement history.** Every change is a new entry. Mistakes are fixed with a correction, not by editing the past.
+- **Movement history.** Every change is treated as a new entry. Mistakes are fixed with a correction (new entry), not by editing an old entry.
 - **Search and dashboard.** Filter by name, SKU, category, location and stock status, with a dashboard of low-stock and out-of-stock items.
 - **Live updates.** Changes by one user appear for others without refreshing.
 
@@ -39,7 +39,7 @@ A CSV export is a nice-to-have if time allows.
 The system has four main parts:
 
 - **Nginx gateway:** the public entry point, handling HTTPS and forwarding both normal requests and WebSocket connections.
-- **Application service:** a Node.js/Express backend serving a small React frontend. It runs as multiple replicas and holds all business logic and permission checks.
+- **Application service:** an Express backend serving a small React frontend. It runs as multiple replicas and holds all business logic and permission checks.
 - **PostgreSQL:** the single source of truth. Each stock operation runs in a transaction, so a transfer updates both locations and both history entries, or nothing at all.
 - **Redis:** used only to pass "inventory changed" notifications between replicas. It stores no inventory data.
 
@@ -65,7 +65,7 @@ We are committing to two advanced features and treating two more as stretch goal
 1. **Real-time updates.** Socket.IO with a Redis adapter, so changes reach every connected user regardless of which replica they are on. Clients re-sync after reconnecting in case they missed a notification. Demo: two users on different replicas see the same change appear.
 2. **Security enhancements.** Hashed passwords; login sessions stored in PostgreSQL so all replicas share them; role checks on every protected route and on WebSocket connections; HTTPS; production credentials supplied as Docker Swarm secrets; database and Redis kept off the public network.
 
-**Stretch goals, in priority order:**
+**Potential additional features, in priority order:**
 
 3. **Backup and recovery.** A scheduled `pg_dump` uploaded to a private Spaces bucket, plus a tested restore into a separate database.
 4. **CI/CD.** GitHub Actions running tests and building the image on pull requests, with automated deployment if time allows.
@@ -81,7 +81,7 @@ Which stretch goals we complete depends on how the core work goes. We would rath
 
 ### 2.7 Scope and Feasibility
 
-The core is a fairly standard web application. The real effort goes into correctness under concurrency, durable storage and a clean replicated deployment, not a large number of screens. We deliberately left out purchase orders, suppliers, barcode scanning, multi-organization support and analytics beyond the dashboard.
+The core is a fairly standard web application. The real effort goes into correctness under concurrency, durable storage and a clean replicated deployment, not a large number of screens. We deliberately left out purchase orders, suppliers, barcode scanning, multi-organization support and analytics beyond the dashboard; this would be too broad for the scope of this project.
 
 With four members and about four weeks, we believe the core features plus two advanced features are achievable, with the stretch goals using any extra time.
 
