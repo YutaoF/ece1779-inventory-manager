@@ -106,7 +106,7 @@ All four members contributed to this proposal. For development, we split the wor
 | --- | --- | --- |
 | [Pete] | Database schema and migrations; stock operations (transactions, locking, transfers); concurrency and rollback tests | Backend API |
 | [Name 2] | Backend API structure; authentication, sessions and role checks; security features (HTTPS, secrets, network exposure) | Deployment |
-| [Name 3] | React frontend (inventory, history, dashboard, management pages); real-time updates on client and server | API testing |
+| [Yutao Fu] | React frontend (inventory, history, dashboard, management pages); real-time updates on client and server | API testing |
 | [Name 4] | Dockerfiles and Compose; Swarm cluster, volume and DigitalOcean setup; monitoring and alerts; backup and CI/CD stretch goals | Stock logic testing |
 
 Shared work, such as end-to-end testing, the final report, `ai-session.md`, the presentation and the video demo, will be split evenly closer to each deadline.
