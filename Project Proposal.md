@@ -34,7 +34,7 @@ A CSV export is a nice-to-have if time allows.
 
 ### 2.3 Planned Architecture
 
-![Planned architecture diagram](ARCHITECTURE_DIAGRAM_URL)
+![Planned architecture diagram](https://raw.githubusercontent.com/YutaoF/ece1779-inventory-manager/main/images/architecture.png)
 
 The system has four main parts:
 
@@ -104,8 +104,8 @@ All four members contributed to this proposal. For development, we split the wor
 
 | Member | Owns | Supports |
 | --- | --- | --- |
-| [Pete] | Database schema and migrations; stock operations (transactions, locking, transfers); concurrency and rollback tests | Backend API |
-| [Name 2] | Backend API structure; authentication, sessions and role checks; security features (HTTPS, secrets, network exposure) | Deployment |
+| [Pete Chen] | Database schema and migrations; stock operations (transactions, locking, transfers); concurrency and rollback tests | Backend API |
+| [Justin Zhang] | Backend API structure; authentication, sessions and role checks; security features (HTTPS, secrets, network exposure) | Deployment |
 | [Yutao Fu] | React frontend (inventory, history, dashboard, management pages); real-time updates on client and server | API testing |
 | [Zavi Jawaid] | Dockerfiles and Compose; Swarm cluster, volume and DigitalOcean setup; monitoring and alerts; backup and CI/CD stretch goals | Stock logic testing |
 
