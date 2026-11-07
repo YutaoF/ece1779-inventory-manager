@@ -136,10 +136,10 @@ All four members contributed to this proposal. For development, we split the wor
 
 | Member | Owns | Supports |
 | --- | --- | --- |
-| [Pete Chen] | Database schema and migrations; stock operations (transactions, locking, transfers); concurrency and rollback tests | Backend API |
-| [Justin Zhang] | Backend API structure; authentication, sessions and role checks; security features (HTTPS, secrets, network exposure) | Deployment |
-| [Yutao Fu] | React frontend (inventory, history, dashboard, management pages); real-time updates on client and server | API testing |
-| [Zavi Jawaid] | Dockerfiles and Compose; Swarm cluster, volume and DigitalOcean setup; monitoring and alerts; backup and CI/CD stretch goals | Stock logic testing |
+| Pete Chen | Database schema and migrations; stock operations (transactions, locking, transfers); concurrency and rollback tests | Backend API |
+| Justin Zhang | Backend API structure; authentication, sessions and role checks; security features (HTTPS, secrets, network exposure) | Deployment |
+| Yutao Fu | React frontend (inventory, history, dashboard, management pages); real-time updates on client and server | API testing |
+| Zavi Jawaid | Dockerfiles and Compose; Swarm cluster, volume and DigitalOcean setup; monitoring and alerts; backup and CI/CD stretch goals | Stock logic testing |
 
 Shared work, such as end-to-end testing, the final report, `ai-session.md`, the presentation and the video demo, will be split evenly closer to each deadline.
 
