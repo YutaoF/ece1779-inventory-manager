@@ -34,39 +34,7 @@ A CSV export is a nice-to-have if time allows.
 
 ### 2.3 Planned Architecture
 
-```mermaid
-flowchart TD
-    U["Users (Managers / Staff)"]
-
-    subgraph DO["DigitalOcean - Docker Swarm Cluster"]
-        N["Nginx Gateway<br/>HTTPS / WebSocket"]
-
-        subgraph APP["Application Service - Multiple Replicas"]
-            A1["App Replica 1<br/>React + Express"]
-            A2["App Replica 2<br/>React + Express"]
-        end
-
-        subgraph DATA["Data and Messaging"]
-            PG[("PostgreSQL<br/>Inventory, History, Accounts")]
-            R[("Redis<br/>Real-Time Notifications")]
-        end
-
-        V[("DigitalOcean Volume<br/>Persistent Storage")]
-    end
-
-    U <-->|HTTPS / WebSocket| N
-
-    N -->|Load Balancing| A1
-    N -->|Load Balancing| A2
-
-    A1 <-->|SQL Transactions| PG
-    A2 <-->|SQL Transactions| PG
-
-    A1 <-->|Socket.IO Redis Adapter| R
-    A2 <-->|Socket.IO Redis Adapter| R
-
-    PG --- V
-```
+![Planned architecture diagram](https://raw.githubusercontent.com/YutaoF/ece1779-inventory-manager/main/images/architecture.png)
 
 The system has four main parts:
 
