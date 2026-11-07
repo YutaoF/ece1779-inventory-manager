@@ -1,6 +1,6 @@
 # Project Proposal: Cloud Inventory Manager
 
-**Team members:** Justin Zhang, Pete Chen, Yutau Fu, Zavi Jawaid
+**Team members:** Justin Zhang, Pete Chen, Yutao Fu, Zavi Jawaid
 
 ## 1. Motivation
 
