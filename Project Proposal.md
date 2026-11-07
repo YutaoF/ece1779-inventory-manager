@@ -139,7 +139,3 @@ We realized one quantity per product was not enough. We needed to track stock by
 We used ChatGPT to organize our ideas and explore possible approaches, but didn't follow everything it suggested. For example, Socket.IO with Redis seemed useful for sending notifications between replicas, while PostgreSQL would remain the source of truth. We also decided that advanced retry handling and four advanced features were too much for our timeline. We kept real-time updates and security enhancements as our two committed features, with backups and CI/CD as stretch goals.
 
 Overall, we moved from a simple inventory website idea toward a smaller system focused on data correctness, persistent storage, and cloud deployment.
-
-However, we didn't follow every suggestion. Some features, like advanced handling of repeated requests and implementing four advanced features, seemed too much for our timeline. We decided to focus on real-time updates and security enhancements, while keeping backups and CI/CD as stretch goals.
-
-Overall, our original idea was to build a simple inventory website. After comparing different projects and looking more closely at the technical challenges, we decided to focus more on data consistency, persistent storage, and cloud deployment rather than adding too many features.
