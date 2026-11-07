@@ -158,19 +158,19 @@ We will agree on the API and schema in week one so frontend and backend work can
 
 ### 4.1 Initial Team Reasoning
 
-**Problem framing.** Before deciding on inventory management, we had a few different ideas. One was a room and equipment booking system for clubs or labs, where we would need to prevent double-bookings. Another was an event ticketing system with QR codes for check-in. We also talked about StudySync, a platform where students could assign tasks, track progress, and see what their teammates had finished.
+**Problem framing.** Before choosing inventory management, we discussed a few ideas. One was a room and equipment booking system where double-bookings were a concern. Another was an event ticketing system with QR check-in. We also considered StudySync, for assigning tasks and tracking group progress. Booking and ticketing would add scheduling or ticket validation work, while StudySync might need more frontend development. Inventory management felt like a better fit for our timeline and cloud goals.
 
-All of these seemed like good options, but we ended up choosing inventory management. The booking and ticketing systems had interesting concurrency problems, but also required extra scheduling or ticket validation logic. StudySync was more relatable to us as students, but we thought it might take more time to build the frontend. Inventory management felt like a better balance between development time and the cloud computing concepts we wanted to demonstrate.
+**Initial technical hypotheses.** We first pictured a basic CRUD app, with a quantity for each product in PostgreSQL, React and Express for the website, and Docker Swarm for deployment. We expected WebSockets to handle live updates, but were unsure about multiple replicas.
 
-**Initial technical hypotheses.** At first, we thought of inventory management as a simple CRUD application where each product had a stock quantity stored in PostgreSQL. We planned to use React and Express for the application and considered Docker Swarm for deployment since we were already familiar with Docker Compose. We also thought WebSockets could handle real-time inventory updates.
-
-**Open questions.** We still had some questions, especially about what would happen if two users tried to remove the same item at the same time. We also weren't sure whether inventory history should be editable, how real-time updates would work across multiple replicas, or how DigitalOcean Volumes would work with Docker Swarm.
+**Open questions.** What if two users tried to issue the same last items? Should stock history be editable? How would WebSocket messages reach users on different replicas? How would a DigitalOcean Volume work with Swarm scheduling?
 
 ### 4.2 Exploration and Evaluation
 
-As we discussed the project further, we realized that inventory management was more than just updating stock numbers. We needed to track where items were stored, who changed the stock, and why. We also needed to make sure two users couldn't accidentally remove more items than were available. This led us to include stock movement history, PostgreSQL transactions, and row-level locking.
+We realized one quantity per product was not enough. We needed to track stock by location and record who changed it and why. This led us to append-only movement history and PostgreSQL transactions with row-level locks to prevent conflicting updates.
 
-We used ChatGPT to help organize our ideas and explore different technical approaches. One suggestion was to use Socket.IO with Redis to send inventory updates across multiple backend replicas. We thought this made sense since users connected to different replicas should still receive the same updates. We decided to use Redis for notifications while keeping PostgreSQL as the source of truth for inventory data.
+We used ChatGPT to organize our ideas and explore possible approaches, but didn't follow everything it suggested. For example, Socket.IO with Redis seemed useful for sending notifications between replicas, while PostgreSQL would remain the source of truth. We also decided that advanced retry handling and four advanced features were too much for our timeline. We kept real-time updates and security enhancements as our two committed features, with backups and CI/CD as stretch goals.
+
+Overall, we moved from a simple inventory website idea toward a smaller system focused on data correctness, persistent storage, and cloud deployment.
 
 However, we didn't follow every suggestion. Some features, like advanced handling of repeated requests and implementing four advanced features, seemed too much for our timeline. We decided to focus on real-time updates and security enhancements, while keeping backups and CI/CD as stretch goals.
 
