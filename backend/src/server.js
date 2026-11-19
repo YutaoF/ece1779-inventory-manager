@@ -14,7 +14,10 @@ try {
 
 const logger = createLogger({ level: config.logLevel, base: { service: 'inventory-api' } });
 const pool = createPool(config.database, logger);
-const app = createApp({ pool, logger, staticDir: config.staticDir });
+const app = createApp({
+  pool, logger, staticDir: config.staticDir,
+  sessionSecret: config.sessionSecret, isProduction: config.isProduction,
+});
 
 const server = app.listen(config.port, config.host, () => {
   logger.info('listening', { host: config.host, port: config.port, nodeEnv: config.nodeEnv });

@@ -1,19 +1,21 @@
 # Stock Operations API Guide
 
-| Call | Who can use it | Required frontend fields |
-| --- | --- | --- |
-| [`receiveStock(pool, input)`](src/stock/receive-stock.js) | Staff or manager | `productId`, `locationId`, `quantity` |
-| [`issueStock(pool, input)`](src/stock/issue-stock.js) | Staff or manager | `productId`, `locationId`, `quantity` |
-| [`correctStock(pool, input)`](src/stock/correct-stock.js) | Manager | `productId`, `locationId`, `quantityDelta`, `reason` |
-| [`transferStock(pool, input)`](src/stock/transfer-stock.js) | Staff or manager | `productId`, `sourceLocationId`, `destinationLocationId`, `quantity` |
+| HTTP endpoint | Backend service | Who can use it | Required JSON fields |
+| --- | --- | --- | --- |
+| `POST /api/stock-operations/receive` | [`receiveStock`](src/stock/receive-stock.js) | Staff or manager | `productId`, `locationId`, `quantity` |
+| `POST /api/stock-operations/issue` | [`issueStock`](src/stock/issue-stock.js) | Staff or manager | `productId`, `locationId`, `quantity` |
+| `POST /api/stock-operations/correction` | [`correctStock`](src/stock/correct-stock.js) | Manager | `productId`, `locationId`, `quantityDelta`, `reason` |
+| `POST /api/stock-operations/transfer` | [`transferStock`](src/stock/transfer-stock.js) | Staff or manager | `productId`, `sourceLocationId`, `destinationLocationId`, `quantity` |
 
 ## What the frontend sends
 
-- **IDs** are positive decimal strings, such as `"12"`.
+- **IDs** can be positive decimal strings or positive, safe JSON integers. Every ID in a stock response is a decimal string, including on retries. Send larger IDs as strings, such as `"9007199254740993"`, to preserve precision.
 - **Quantities** are JSON numbers in whole units. For receive, issue, and transfer, `quantity` must be between `1` and `2147483647`. A correction takes a signed `quantityDelta` between `-2147483648` and `2147483647`, excluding zero.
 - **`reason`** is a required nonblank string for corrections. For other calls it may be a string, omitted, or `null`.
-- **`clientRequestKey`** is an optional nonblank string on all four calls. BUT TO PREVENT duplicate submissions due to unexpected time-out issues like dropout of responses, generate it once when the user confirms a new submission. If the response times out, resend the saved payload with the same key. A second intentional submission gets a fresh key, even if the quantity is identical. Omitting the key or sending `null` makes each call independent.
--- **Side notes for frontend：** a possible solution for the scenario "retrying a request after the stock change has committed but the response has been lost"
+- **`clientRequestKey`** is an optional nonblank string on all four calls. Generate it once when the user confirms a new submission. If the response times out, resend the saved payload with the same key. A second intentional submission gets a fresh key, even if the quantity is identical. Omitting the key or sending `null` makes each call independent.
+
+For example, a Receive form can handle retries like this.
+
   1. You enter 5 and click Receive. The form creates key A, saves the request, and sends it. While it’s sending, the button is disabled so a double-click counts once.
   2. If it succeeds, the screen shows “Received 5 bags” and clears the form. When another 5 bags arrive, you enter 5 again and click Receive again. Submitting that fresh form is the exact event that creates key B.
   3. If the first request times out (e.g. no response received), the form stays open and shows Retry. Clicking Retry resends the request already saved with key A.
@@ -26,10 +28,10 @@ Adds `quantity` at the specified location. A first receipt creates the inventory
 **Frontend input**
 
 ```json
-{ "productId": "7", "locationId": "2", "quantity": 5, "clientRequestKey": "delivery-42" }
+{ "productId": 7, "locationId": 2, "quantity": 5, "clientRequestKey": "delivery-42" }
 ```
 
-**Service result**
+**HTTP 200 response**
 
 ```json
 {
@@ -40,15 +42,15 @@ Adds `quantity` at the specified location. A first receipt creates the inventory
 
 ## Issue stock
 
-Removes `quantity` from the location. Send a positive number. Issuing 4 from 17 leaves 13. If the location holds fewer than 4, the call fails with `INSUFFICIENT_STOCK`.
+Removes `quantity` from the location. Send a positive number. Issuing 4 from 17 leaves 13. If the location holds fewer than 4, the endpoint returns `409 insufficient_stock`.
 
 **Frontend input**
 
 ```json
-{ "productId": "7", "locationId": "2", "quantity": 4, "reason": "Handed out at pickup" }
+{ "productId": 7, "locationId": 2, "quantity": 4, "reason": "Handed out at pickup" }
 ```
 
-**Service result**
+**HTTP 200 response**
 
 ```json
 {
@@ -59,15 +61,15 @@ Removes `quantity` from the location. Send a positive number. Issuing 4 from 17 
 
 ## Correct stock
 
-Applies a manager's signed adjustment. If the recorded balance is 13 and the physical count is 11, send `quantityDelta: -2` and explain the difference. A positive delta adds units. A staff caller receives `FORBIDDEN`.
+Applies a manager's signed adjustment. If the recorded balance is 13 and the physical count is 11, send `quantityDelta: -2` and explain the difference. A positive delta adds units. A staff caller receives `403 forbidden`.
 
 **Frontend input**
 
 ```json
-{ "productId": "7", "locationId": "2", "quantityDelta": -2, "reason": "Two damaged bags removed" }
+{ "productId": 7, "locationId": 2, "quantityDelta": -2, "reason": "Two damaged bags removed" }
 ```
 
-**Service result**
+**HTTP 200 response**
 
 ```json
 {
@@ -83,10 +85,10 @@ Moves one product between two distinct locations. Here the source has 11 bags an
 **Frontend input**
 
 ```json
-{ "productId": "7", "sourceLocationId": "2", "destinationLocationId": "9", "quantity": 3 }
+{ "productId": 7, "sourceLocationId": 2, "destinationLocationId": 9, "quantity": 3 }
 ```
 
-**Service result**
+**HTTP 200 response**
 
 ```json
 {
@@ -107,16 +109,16 @@ You signed in. The storeroom has 12 bags, and you click Receive 5. The browser s
 3. Your browser retries Receive 5 with key A. The backend recognizes the same user, key, and request details. It returns the saved result: “Received 5, balance after receipt 17.” The current balance stays 13.
 
 
-On failure the service throws. [Shared service implementation](src/stock/stock-operation.js)
+The service raises a `StockError` for an expected failure. The route maps it to a status and JSON error, such as `{"error":{"code":"insufficient_stock","message":"Not enough stock at this location"}}`. Branch on the status and `error.code`. The message is for display. [Shared service implementation](src/stock/stock-operation.js)
 
-| Service error code | What it means |
+| HTTP status and code | When it applies |
 | --- | --- |
-| `INVALID_INPUT` | A field is missing or invalid, the transfer locations are the same, or a correction has a blank reason. |
-| `ACTOR_NOT_FOUND`, `ACTOR_DISABLED` | The session user is missing or disabled. |
-| `FORBIDDEN` | A correction requires a manager. |
-| `PRODUCT_NOT_FOUND`, `PRODUCT_ARCHIVED` | A new operation requires an existing, active product. |
-| `LOCATION_NOT_FOUND`, `LOCATION_ARCHIVED` | Each location on a new operation must exist and be active. |
-| `INSUFFICIENT_STOCK` | An issue, transfer, or negative correction would take stock below zero. |
-| `QUANTITY_OVERFLOW` | The resulting balance would exceed `2147483647`. |
-| `REQUEST_KEY_CONFLICT` | This user already used the key with another action or different request details. |
-| `OPERATION_INCOMPLETE` | A matching operation exists but has no saved result. |
+| `400 validation_failed` | Invalid fields, identical transfer locations, or a missing correction reason. |
+| `401 unauthenticated` | The session is missing or expired, or its user is missing or disabled. |
+| `403 forbidden` | A correction requires a manager. |
+| `404 not_found` | A specified product or location does not exist. |
+| `409 product_archived`, `409 location_archived` | The product or a location has been archived. |
+| `409 insufficient_stock` | An issue, transfer, or negative correction would take stock below zero. |
+| `409 quantity_overflow` | The resulting balance would exceed `2147483647`. |
+| `409 request_key_conflict` | This user already used the key with another action or different request details. |
+| `500 internal_error` | The service could not complete the request or read the original saved result. |

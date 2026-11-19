@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import express from 'express';
+import { sessionMiddleware } from './auth/session.js';
 import { errorHandler } from './middleware/errors.js';
 import { requestContext } from './middleware/request-context.js';
 import { apiRouter } from './routes/api.js';
@@ -13,10 +14,12 @@ import { healthRouter } from './routes/health.js';
  * Shared dependencies live on `app.locals` and are reachable from any handler
  * as `req.app.locals.pool` / `req.app.locals.logger`.
  */
-export function createApp({ pool, logger, staticDir, readinessTimeoutMs } = {}) {
+export function createApp({ pool, logger, sessionSecret, isProduction = false, staticDir, readinessTimeoutMs } = {}) {
   const app = express();
 
   app.disable('x-powered-by');
+  // The production gateway terminates HTTPS and sets X-Forwarded-Proto.
+  if (isProduction) app.set('trust proxy', 1);
   app.locals.pool = pool;
   app.locals.logger = logger;
   app.locals.shuttingDown = false;
@@ -24,6 +27,7 @@ export function createApp({ pool, logger, staticDir, readinessTimeoutMs } = {}) 
   app.use(requestContext(logger));
   app.use(healthRouter({ readinessTimeoutMs }));
   app.use(express.json({ limit: '100kb' }));
+  if (sessionSecret) app.use('/api', sessionMiddleware(pool, sessionSecret, isProduction));
   app.use('/api', apiRouter());
 
   if (staticDir) {

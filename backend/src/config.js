@@ -61,6 +61,10 @@ export function loadConfig(env = process.env) {
   if (databaseUrl === undefined) {
     throw new Error('DATABASE_URL (or DATABASE_URL_FILE) is required');
   }
+  const sessionSecret = readSetting(env, 'SESSION_SECRET');
+  if (sessionSecret !== undefined && (!sessionSecret.trim() || Buffer.byteLength(sessionSecret, 'utf8') < 32)) {
+    throw new Error('SESSION_SECRET (or SESSION_SECRET_FILE) must contain at least 32 bytes');
+  }
 
   const logLevel = readSetting(env, 'LOG_LEVEL') ?? 'info';
   if (!LOG_LEVELS.includes(logLevel)) {
@@ -80,8 +84,7 @@ export function loadConfig(env = process.env) {
       password: readSetting(env, 'DATABASE_PASSWORD'),
       poolMax: readInteger(env, 'DATABASE_POOL_MAX', 10, { min: 1, max: 100 }),
     },
-    // Used by sessions from stage 2 onward; optional until then.
-    sessionSecret: readSetting(env, 'SESSION_SECRET'),
+    sessionSecret,
     // Used by Socket.IO's Redis adapter once real-time updates land.
     redisUrl: readSetting(env, 'REDIS_URL'),
     // Directory holding the built React app. When unset, only the API is served.
