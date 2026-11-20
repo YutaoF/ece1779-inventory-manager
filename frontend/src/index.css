@@ -1,6 +1,6 @@
 body {
   margin: 0;
-  padding: 24px;
+  padding: 0;
   font-family: Arial, sans-serif;
   background-color: #f5f5f5;
   color: #282828;
@@ -48,8 +48,9 @@ input {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ddd;
+  padding: 16px 20px;
+  background-color: #9bcff4;
+  border-bottom: 1px solid #b3daf9;
 }
 
 .top-bar h1 {
@@ -114,4 +115,16 @@ input {
 .stock-form p {
   width: 100%;
   margin: 0;
+}
+
+.login-notice {
+  min-height: 70vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+}
+
+.login-notice p {
+  font-size: 28px;
 }

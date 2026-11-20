@@ -228,239 +228,245 @@ async function handleTransfer(event) {
 }
   return (
     <div>
-      <header className="top-bar">
-        <h1>Inventory Manager</h1>
+        <header className="top-bar">
+          <h1>Inventory Manager</h1>
 
-        <div className="login-section">
-          {isCheckingLogin ? (
-            <span>Checking login...</span>
-          ) : user ? (
-            <div className="login-area">
-              <span>
-                {user.name} ({user.role})
-              </span>
+          <div className="login-section">
+            {isCheckingLogin ? (
+              <span>Checking login...</span>
+            ) : user ? (
+              <div className="login-area">
+                <span>
+                  {user.name} ({user.role})
+                </span>
 
-              <button type="button" onClick={handleLogout}>
-                Logout
-              </button>
-            </div>
-          ) : (
-            <form className="login-area" onSubmit={handleLogin}>
-              <label htmlFor="email">Email</label>
+                <button type="button" onClick={handleLogout}>
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <form className="login-area" onSubmit={handleLogin}>
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+
+                <button type="submit" disabled={isLoggingIn}>
+                  {isLoggingIn ? 'Logging in...' : 'Login'}
+                </button>
+              </form>
+            )}
+
+            {loginMessage && (
+              <p className="login-message" role="status">
+                {loginMessage}
+              </p>
+            )}
+          </div>
+        </header>
+
+        <main className="page-content">
+        {!isCheckingLogin && !user && (
+          <div className="login-notice">
+            <p>Please log in first.</p>
+          </div>
+        )}
+
+        {user && (
+          <section>
+            <h2>Inventory</h2>
+
+            <input
+              type="text"
+              placeholder="Search by product name"
+              aria-label="Search by product name"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Product number</th>
+                  <th>Product name</th>
+                  <th>Storage Location</th>
+                  <th>Quantity</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {inventory
+                  .filter((item) =>
+                    item.name.toLowerCase().includes(search.toLowerCase())
+                  )
+                  .map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.sku}</td>
+                      <td>{item.name}</td>
+                      <td>{item.location}</td>
+                      <td>{item.quantity}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            <h2>Receive Stock</h2>
+            <form className="stock-form" onSubmit={handleReceive}>
+              <label htmlFor="receive-product">Product</label>
+              <select
+                id="receive-product"
+                value={receiveProductId}
+                onChange={(event) => setReceiveProductId(event.target.value)}
+              >
+                <option value="1">A001 - iPhone</option>
+                <option value="2">A002 - iPad</option>
+                <option value="3">A003 - MacBook Air</option>
+                <option value="4">A004 - AirPods</option>
+              </select>
+
+              <label htmlFor="receive-location">Location</label>
+              <select
+                id="receive-location"
+                value={receiveLocationId}
+                onChange={(event) => setReceiveLocationId(event.target.value)}
+              >
+                <option value="1">Main Warehouse</option>
+                <option value="2">Toronto Store</option>
+              </select>
+
+              <label htmlFor="receive-quantity">Quantity</label>
               <input
-                id="email"
-                type="email"
-                autoComplete="username"
+                id="receive-quantity"
+                type="number"
+                min="1"
+                max="2147483647"
+                step="1"
                 required
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                value={receiveQuantity}
+                onChange={(event) => setReceiveQuantity(event.target.value)}
               />
 
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-
-              <button type="submit" disabled={isLoggingIn}>
-                {isLoggingIn ? 'Logging in...' : 'Login'}
+              <button type="submit" disabled={isReceiving}>
+                {isReceiving ? 'Receiving...' : 'Receive'}
               </button>
+
+              <p role="status">{receiveMessage}</p>
             </form>
-          )}
 
-          {loginMessage && (
-            <p className="login-message" role="status">
-              {loginMessage}
-            </p>
-          )}
-        </div>
-      </header>
+            <h2>Issue Stock</h2>
 
-      <p>Manage products and stock levels</p>
+            <form className="stock-form" onSubmit={handleIssue}>
+              <label htmlFor="issue-product">Product</label>
+              <select
+                id="issue-product"
+                value={issueProductId}
+                onChange={(event) => setIssueProductId(event.target.value)}
+              >
+                <option value="1">A001 - iPhone</option>
+                <option value="2">A002 - iPad</option>
+                <option value="3">A003 - MacBook Air</option>
+                <option value="4">A004 - AirPods</option>
+              </select>
 
-      {user && (
-        <section>
-          <h2>Inventory</h2>
+              <label htmlFor="issue-location">Location</label>
+              <select
+                id="issue-location"
+                value={issueLocationId}
+                onChange={(event) => setIssueLocationId(event.target.value)}
+              >
+                <option value="1">Main Warehouse</option>
+                <option value="2">Toronto Store</option>
+              </select>
 
-          <input
-            type="text"
-            placeholder="Search by product name"
-            aria-label="Search by product name"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+              <label htmlFor="issue-quantity">Quantity</label>
+              <input
+                id="issue-quantity"
+                type="number"
+                min="1"
+                max="2147483647"
+                step="1"
+                required
+                value={issueQuantity}
+                onChange={(event) => setIssueQuantity(event.target.value)}
+              />
 
-          <table>
-            <thead>
-              <tr>
-                <th>Product number</th>
-                <th>Product name</th>
-                <th>Storage Location</th>
-                <th>Quantity</th>
-              </tr>
-            </thead>
+              <button type="submit" disabled={isIssuing}>
+                {isIssuing ? 'Issuing...' : 'Issue'}
+              </button>
 
-            <tbody>
-              {inventory
-                .filter((item) =>
-                  item.name.toLowerCase().includes(search.toLowerCase())
-                )
-                .map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.sku}</td>
-                    <td>{item.name}</td>
-                    <td>{item.location}</td>
-                    <td>{item.quantity}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-          <h2>Receive Stock</h2>
-          <form className="stock-form" onSubmit={handleReceive}>
-            <label htmlFor="receive-product">Product</label>
-            <select
-              id="receive-product"
-              value={receiveProductId}
-              onChange={(event) => setReceiveProductId(event.target.value)}
-            >
-              <option value="1">A001 - iPhone</option>
-              <option value="2">A002 - iPad</option>
-              <option value="3">A003 - MacBook Air</option>
-              <option value="4">A004 - AirPods</option>
-            </select>
+              <p role="status">{issueMessage}</p>
+            </form>
 
-            <label htmlFor="receive-location">Location</label>
-            <select
-              id="receive-location"
-              value={receiveLocationId}
-              onChange={(event) => setReceiveLocationId(event.target.value)}
-            >
-              <option value="1">Main Warehouse</option>
-              <option value="2">Toronto Store</option>
-            </select>
+            <h2>Transfer Stock</h2>
 
-            <label htmlFor="receive-quantity">Quantity</label>
-            <input
-              id="receive-quantity"
-              type="number"
-              min="1"
-              max="2147483647"
-              step="1"
-              required
-              value={receiveQuantity}
-              onChange={(event) => setReceiveQuantity(event.target.value)}
-            />
+            <form className="stock-form" onSubmit={handleTransfer}>
+              <label htmlFor="transfer-product">Product</label>
+              <select
+                id="transfer-product"
+                value={transferProductId}
+                onChange={(event) => setTransferProductId(event.target.value)}
+              >
+                <option value="1">A001 - iPhone</option>
+                <option value="2">A002 - iPad</option>
+                <option value="3">A003 - MacBook Air</option>
+                <option value="4">A004 - AirPods</option>
+              </select>
 
-            <button type="submit" disabled={isReceiving}>
-              {isReceiving ? 'Receiving...' : 'Receive'}
-            </button>
+              <label htmlFor="transfer-source">From</label>
+              <select
+                id="transfer-source"
+                value={sourceLocationId}
+                onChange={(event) => setSourceLocationId(event.target.value)}
+              >
+                <option value="1">Main Warehouse</option>
+                <option value="2">Toronto Store</option>
+              </select>
 
-            <p role="status">{receiveMessage}</p>
-          </form>
+              <label htmlFor="transfer-destination">To</label>
+              <select
+                id="transfer-destination"
+                value={destinationLocationId}
+                onChange={(event) => setDestinationLocationId(event.target.value)}
+              >
+                <option value="1">Main Warehouse</option>
+                <option value="2">Toronto Store</option>
+              </select>
 
-          <h2>Issue Stock</h2>
+              <label htmlFor="transfer-quantity">Quantity</label>
+              <input
+                id="transfer-quantity"
+                type="number"
+                min="1"
+                max="2147483647"
+                step="1"
+                required
+                value={transferQuantity}
+                onChange={(event) => setTransferQuantity(event.target.value)}
+              />
 
-          <form className="stock-form" onSubmit={handleIssue}>
-            <label htmlFor="issue-product">Product</label>
-            <select
-              id="issue-product"
-              value={issueProductId}
-              onChange={(event) => setIssueProductId(event.target.value)}
-            >
-              <option value="1">A001 - iPhone</option>
-              <option value="2">A002 - iPad</option>
-              <option value="3">A003 - MacBook Air</option>
-              <option value="4">A004 - AirPods</option>
-            </select>
+              <button type="submit" disabled={isTransferring}>
+                {isTransferring ? 'Transferring...' : 'Transfer'}
+              </button>
 
-            <label htmlFor="issue-location">Location</label>
-            <select
-              id="issue-location"
-              value={issueLocationId}
-              onChange={(event) => setIssueLocationId(event.target.value)}
-            >
-              <option value="1">Main Warehouse</option>
-              <option value="2">Toronto Store</option>
-            </select>
-
-            <label htmlFor="issue-quantity">Quantity</label>
-            <input
-              id="issue-quantity"
-              type="number"
-              min="1"
-              max="2147483647"
-              step="1"
-              required
-              value={issueQuantity}
-              onChange={(event) => setIssueQuantity(event.target.value)}
-            />
-
-            <button type="submit" disabled={isIssuing}>
-              {isIssuing ? 'Issuing...' : 'Issue'}
-            </button>
-
-            <p role="status">{issueMessage}</p>
-          </form>
-
-          <h2>Transfer Stock</h2>
-
-          <form className="stock-form" onSubmit={handleTransfer}>
-            <label htmlFor="transfer-product">Product</label>
-            <select
-              id="transfer-product"
-              value={transferProductId}
-              onChange={(event) => setTransferProductId(event.target.value)}
-            >
-              <option value="1">A001 - iPhone</option>
-              <option value="2">A002 - iPad</option>
-              <option value="3">A003 - MacBook Air</option>
-              <option value="4">A004 - AirPods</option>
-            </select>
-
-            <label htmlFor="transfer-source">From</label>
-            <select
-              id="transfer-source"
-              value={sourceLocationId}
-              onChange={(event) => setSourceLocationId(event.target.value)}
-            >
-              <option value="1">Main Warehouse</option>
-              <option value="2">Toronto Store</option>
-            </select>
-
-            <label htmlFor="transfer-destination">To</label>
-            <select
-              id="transfer-destination"
-              value={destinationLocationId}
-              onChange={(event) => setDestinationLocationId(event.target.value)}
-            >
-              <option value="1">Main Warehouse</option>
-              <option value="2">Toronto Store</option>
-            </select>
-
-            <label htmlFor="transfer-quantity">Quantity</label>
-            <input
-              id="transfer-quantity"
-              type="number"
-              min="1"
-              max="2147483647"
-              step="1"
-              required
-              value={transferQuantity}
-              onChange={(event) => setTransferQuantity(event.target.value)}
-            />
-
-            <button type="submit" disabled={isTransferring}>
-              {isTransferring ? 'Transferring...' : 'Transfer'}
-            </button>
-
-            <p role="status">{transferMessage}</p>
-          </form>
-        </section>
-      )}
+              <p role="status">{transferMessage}</p>
+            </form>
+          </section>
+        )}
+      </main>
     </div>
   )
 }
