@@ -4,15 +4,27 @@ Express 5 + `pg` service that serves the JSON API under `/api` and, in productio
 
 ## Run locally
 
-Requires Node 18.17+ (Node 22 LTS recommended) and a PostgreSQL database migrated with [`db/migrate.sql`](../db/migrate.sql).
+Requires Node 22 LTS (minimum 18.18 or 20.9; older 18.x releases skip the stock tests' setup and fail) and Docker.
+
+From the repo root, start Postgres and Redis with the root [`compose.yaml`](../compose.yaml) and apply the migrations:
 
 ```bash
-cd backend
-npm install
-cp .env.example .env   # then edit DATABASE_URL / DATABASE_PASSWORD
-node --env-file=.env src/server.js   # Node 20+; on Node 18 export the variables yourself
-npm test
+cp .env.example .env
+docker compose up -d --wait
+docker compose cp db db:/tmp/db
+docker compose exec db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /tmp/db/migrate.sql'
 ```
+
+Rerunning the migration is safe; versions already applied are skipped. Then, in `backend/`:
+
+```bash
+npm install
+cp .env.example .env   # values already match the Compose defaults
+node --env-file=.env src/server.js
+node --env-file=.env --test   # all tests; the stock tests need TEST_DATABASE_URL
+```
+
+Plain `npm test` does not read `.env`, so the stock tests fail with "Set TEST_DATABASE_URL" unless it is exported in your shell.
 
 ## Layout
 
