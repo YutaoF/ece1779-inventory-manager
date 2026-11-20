@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
@@ -14,9 +15,19 @@ try {
 
 const logger = createLogger({ level: config.logLevel, base: { service: 'inventory-api' } });
 const pool = createPool(config.database, logger);
+
+// Production refuses to start without SESSION_SECRET (see config.js). In
+// development a missing secret gets a random one so sign-in works out of the
+// box; sessions then last only until the process restarts.
+let { sessionSecret } = config;
+if (sessionSecret === undefined) {
+  sessionSecret = randomBytes(48).toString('base64');
+  logger.warn('SESSION_SECRET not set; using a random development secret (sessions reset on restart)');
+}
+
 const app = createApp({
   pool, logger, staticDir: config.staticDir,
-  sessionSecret: config.sessionSecret, isProduction: config.isProduction,
+  sessionSecret, isProduction: config.isProduction,
 });
 
 const server = app.listen(config.port, config.host, () => {
@@ -48,6 +59,7 @@ function shutdown(signal) {
 
   server.close(async () => {
     try {
+      await app.locals.sessionStore?.close();
       await pool.end();
     } catch (err) {
       logger.warn('error closing database pool', { err });

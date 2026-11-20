@@ -16,7 +16,10 @@ export async function startApp(options = {}) {
   return {
     app,
     url: `http://127.0.0.1:${port}`,
-    close: () => closeServer(server),
+    close: async () => {
+      await closeServer(server);
+      await app.locals.sessionStore?.close();
+    },
   };
 }
 

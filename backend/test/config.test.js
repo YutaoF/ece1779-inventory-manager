@@ -78,7 +78,17 @@ describe('loadConfig', () => {
   });
 
   it('flags production', () => {
-    assert.equal(loadConfig({ ...minimal, NODE_ENV: 'production' }).isProduction, true);
+    const secret = 'x'.repeat(32);
+    assert.equal(loadConfig({ ...minimal, NODE_ENV: 'production', SESSION_SECRET: secret }).isProduction, true);
+  });
+
+  it('requires SESSION_SECRET in production only', () => {
+    assert.throws(() => loadConfig({ ...minimal, NODE_ENV: 'production' }), /required in production/);
+    assert.equal(loadConfig(minimal).sessionSecret, undefined);
+  });
+
+  it('rejects a SESSION_SECRET shorter than 32 bytes', () => {
+    assert.throws(() => loadConfig({ ...minimal, SESSION_SECRET: 'too-short' }), /at least 32 bytes/);
   });
 
   it('rejects a non-numeric PORT', () => {

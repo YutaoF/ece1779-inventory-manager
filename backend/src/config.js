@@ -65,6 +65,11 @@ export function loadConfig(env = process.env) {
   if (sessionSecret !== undefined && (!sessionSecret.trim() || Buffer.byteLength(sessionSecret, 'utf8') < 32)) {
     throw new Error('SESSION_SECRET (or SESSION_SECRET_FILE) must contain at least 32 bytes');
   }
+  // Every replica must share one secret, or sessions signed by one replica are
+  // rejected by the others; a per-process random fallback is dev-only.
+  if (sessionSecret === undefined && nodeEnv === 'production') {
+    throw new Error('SESSION_SECRET (or SESSION_SECRET_FILE) is required in production');
+  }
 
   const logLevel = readSetting(env, 'LOG_LEVEL') ?? 'info';
   if (!LOG_LEVELS.includes(logLevel)) {

@@ -27,7 +27,12 @@ export function createApp({ pool, logger, sessionSecret, isProduction = false, s
   app.use(requestContext(logger));
   app.use(healthRouter({ readinessTimeoutMs }));
   app.use(express.json({ limit: '100kb' }));
-  if (sessionSecret) app.use('/api', sessionMiddleware(pool, sessionSecret, isProduction));
+  if (sessionSecret) {
+    const sessions = sessionMiddleware(pool, sessionSecret, isProduction);
+    // Kept so shutdown (and tests) can stop the store's pruning timer.
+    app.locals.sessionStore = sessions.store;
+    app.use('/api', sessions.middleware);
+  }
   app.use('/api', apiRouter());
 
   if (staticDir) {

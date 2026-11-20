@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authRouter } from '../auth/router.js';
 import { apiNotFound } from '../middleware/errors.js';
 import { stockRouter } from '../stock/router.js';
 
@@ -8,6 +9,7 @@ import { stockRouter } from '../stock/router.js';
  */
 export function apiRouter() {
   const router = Router();
+  router.use('/auth', authRouter());
   router.use('/stock-operations', stockRouter());
 
   // Anything under /api that no feature router handled is a JSON 404, never
