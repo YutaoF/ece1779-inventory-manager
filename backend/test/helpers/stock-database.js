@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import pg from 'pg';
-import { createDatabasePool } from '../../src/db.js';
 
 export async function createTestDatabase() {
   const connectionString = process.env.TEST_DATABASE_URL;
@@ -35,12 +34,16 @@ export async function createTestDatabase() {
 
     const testUrl = new URL(connectionString);
     testUrl.pathname = `/${databaseName}`;
-    pool = createDatabasePool({
+    pool = new pg.Pool({
       connectionString: testUrl.toString(),
       application_name: databaseName,
       max: 8,
       statement_timeout: 10_000,
+      connectionTimeoutMillis: 5_000,
     });
+    // Without a listener, an idle client dropped by DROP DATABASE ... WITH (FORCE)
+    // would crash the test process.
+    pool.on('error', () => {});
 
     const migrationDirectory = new URL('../../../db/migrations/', import.meta.url);
     const migrations = (await readdir(migrationDirectory))
