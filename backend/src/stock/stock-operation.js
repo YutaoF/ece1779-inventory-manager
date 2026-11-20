@@ -8,10 +8,11 @@ const resultQuantityFields = {
 };
 
 export class StockError extends Error {
-  constructor(code, message) {
+  constructor(code, message, details) {
     super(message);
     this.name = 'StockError';
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -117,7 +118,7 @@ async function recordMovement(client, operationId, operationType, balance, quant
       correction: 'The correction would take stock at this location below zero.',
       transfer: 'There is not enough stock at the source location to transfer the requested quantity.',
     };
-    throw new StockError('INSUFFICIENT_STOCK', messages[operationType]);
+    throw new StockError('INSUFFICIENT_STOCK', messages[operationType], { available: balance.quantity });
   }
   if (quantityAfter > MAX_QUANTITY) {
     throw new StockError('QUANTITY_OVERFLOW', 'The resulting balance exceeds the supported quantity limit.');

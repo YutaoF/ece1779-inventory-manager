@@ -109,7 +109,19 @@ You signed in. The storeroom has 12 bags, and you click Receive 5. The browser s
 3. Your browser retries Receive 5 with key A. The backend recognizes the same user, key, and request details. It returns the saved result: “Received 5, balance after receipt 17.” The current balance stays 13.
 
 
-The service raises a `StockError` for an expected failure. The route maps it to a status and JSON error, such as `{"error":{"code":"insufficient_stock","message":"Not enough stock at this location"}}`. Branch on the status and `error.code`. The message is for display. [Shared service implementation](src/stock/stock-operation.js)
+The service raises a `StockError` for an expected failure. The route maps it to an HTTP status and JSON error. For example, attempting to issue 5 units when only 2 remain returns HTTP `409`. [Shared service implementation](src/stock/stock-operation.js)
+
+```json
+{
+  "error": {
+    "code": "insufficient_stock",
+    "message": "There is not enough stock at this location to issue the requested quantity.",
+    "details": { "available": 2 }
+  }
+}
+```
+
+When `error.code` is `insufficient_stock`, display `error.details.available` as the number of units on hand when PostgreSQL checked the locked inventory row. This number can be `0`. It refers to the requested location for an issue or negative correction and the source location for a transfer. Later stock operations can change the balance.
 
 | HTTP status and code | When it applies |
 | --- | --- |

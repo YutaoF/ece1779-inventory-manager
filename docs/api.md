@@ -15,10 +15,10 @@ The contract every backend route and the React client follow. Runtime and deploy
 Every error response has the same shape:
 
 ```json
-{ "error": { "code": "insufficient_stock", "message": "Not enough stock at this location" } }
+{ "error": { "code": "insufficient_stock", "message": "There is not enough stock at this location to issue the requested quantity.", "details": { "available": 2 } } }
 ```
 
-`code` is a stable, machine-readable `snake_case` string the frontend can branch on. `message` is for people. `details` is optional.
+`code` is a stable, machine-readable `snake_case` string the frontend can branch on. `message` is for people. `details` is optional in general. For HTTP `409 insufficient_stock`, `error.details.available` always gives the number of units on hand when the locked balance was checked, including zero. This is the location's balance for an issue or negative correction and the source balance for a transfer.
 
 | Status | When | Example `code` |
 | --- | --- | --- |
@@ -44,6 +44,7 @@ In server code, throw `new HttpError(status, code, message, details)` from `back
 | `POST` | `/api/auth/login` | none | `200 {"user":{...}}` and the session cookie. See [Auth](#auth). |
 | `POST` | `/api/auth/logout` | none | `204`; deletes the session (also `204` when not signed in). |
 | `GET` | `/api/auth/me` | signed in | `200 {"user":{...}}`, or `401 unauthenticated`. |
+| `GET` | `/api/inventory` | Staff or manager | `200 {"inventory":[...]}` with one current balance per tracked product and location. See [Inventory](#inventory). |
 | `POST` | `/api/stock-operations/receive` | Staff or manager | `200` with the recorded receipt and resulting balance. |
 | `POST` | `/api/stock-operations/issue` | Staff or manager | `200` with the recorded issue and resulting balance. |
 | `POST` | `/api/stock-operations/correction` | Manager | `200` with the signed adjustment and resulting balance. |
@@ -81,6 +82,41 @@ Signing in replaces any previous session. `role` is `"manager"` or `"staff"`; us
 
 Any request can return `401 unauthenticated` once the 8-hour session expires; send the user back to the login page when that happens.
 
+### Inventory
+
+**`GET /api/inventory`** takes no request body. Active staff and managers can read all tracked balances. A missing or expired session, or a disabled or missing account, returns `401 unauthenticated`.
+
+```json
+{
+  "inventory": [
+    {
+      "id": "7:2",
+      "productId": "7",
+      "sku": "RICE",
+      "name": "Rice",
+      "locationId": "2",
+      "location": "Pantry",
+      "quantity": 5,
+      "productArchived": false,
+      "locationArchived": false
+    }
+  ]
+}
+```
+
+`quantity` is the latest committed balance for that product at that location. A tracked pair with zero stock appears with `quantity: 0`. Untracked pairs have no row. Archived products and locations keep their balances visible and carry the corresponding archive flag. An empty inventory returns `200 {"inventory":[]}`.
+
+Rows are sorted by product name, location name, product ID and location ID. Use the opaque `id` as the React row key. Use `productId` and `locationId`, both decimal strings, when submitting stock operations.
+
+Fetch the list when the signed-in inventory view loads and again after a successful stock operation.
+
+```js
+const response = await fetch('/api/inventory');
+const data = await response.json();
+if (!response.ok) throw new Error(data.error.message);
+setInventory(data.inventory);
+```
+
 ### Planned route prefixes
 
 Each prefix is one folder in `backend/src/` with its own router, mounted in `backend/src/routes/api.js`. Request and response shapes are documented here by whoever implements the prefix, in the same pull request.
@@ -91,7 +127,7 @@ Each prefix is one folder in `backend/src/` with its own router, mounted in `bac
 | `/api/categories` | list, create | read: any; write: manager |
 | `/api/products` | list/search, create, edit, archive | read: any; write: manager |
 | `/api/locations` | list, create, edit, archive | read: any; write: manager |
-| `/api/inventory` | balances per product/location, low-stock dashboard, reorder thresholds | read: any; thresholds: manager |
+| `/api/inventory` | Low-stock dashboard and reorder threshold management | read: any; thresholds: manager |
 | `/api/movements` | history, filtered by product, location, actor or date | any logged-in user |
 
 ### Retried stock requests
