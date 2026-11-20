@@ -20,11 +20,25 @@ Rerunning the migration is safe; versions already applied are skipped. Then, in 
 ```bash
 npm install
 cp .env.example .env   # values already match the Compose defaults
+node --env-file=.env scripts/create-user.js --email you@example.com --name "Your Name"
 node --env-file=.env src/server.js
-node --env-file=.env --test   # all tests; the stock tests need TEST_DATABASE_URL
+node --env-file=.env --test   # all tests; the stock and auth tests need TEST_DATABASE_URL
 ```
 
-Plain `npm test` does not read `.env`, so the stock tests fail with "Set TEST_DATABASE_URL" unless it is exported in your shell.
+Plain `npm test` does not read `.env`, so the database tests fail with "Set TEST_DATABASE_URL" unless it is exported in your shell.
+
+### Creating accounts
+
+`scripts/create-user.js` adds an account directly in the database. It's the only way to create the first manager; later accounts can come from the users API (stage 3).
+
+```bash
+node --env-file=.env scripts/create-user.js --email you@example.com --name "Your Name"             # manager
+node --env-file=.env scripts/create-user.js --email helper@example.com --name "Helper" --role staff
+```
+
+It prints a generated password once. To choose the password instead, set `NEW_USER_PASSWORD` (at least 8 characters) in the environment; it is never taken as an argument, so it stays out of shell history. On a server, run it inside an app container: `docker exec -it <container> node scripts/create-user.js ...`.
+
+Passwords are hashed with scrypt (Node's built-in `crypto`, no native modules).
 
 ## Layout
 
@@ -40,7 +54,9 @@ backend/
     routes/
       health.js          /healthz, /readyz
       api.js             mounts every feature router under /api
-    auth/                sessions, password hashing, role middleware   (stage 2–3)
+    auth/                sessions, password hashing, /api/auth routes; role middleware (stage 3)
+  scripts/
+    create-user.js       create an account from the command line (first manager)
     <feature>/           one folder per feature area: router + service + queries
   test/                  node:test suites (`npm test`)
 ```
@@ -75,7 +91,7 @@ Every setting can be given as `NAME` or as `NAME_FILE` pointing to a file holdin
 | `DATABASE_URL` | yes | — | e.g. `postgres://inventory@db:5432/inventory`; may omit the password |
 | `DATABASE_PASSWORD` | no | — | Overrides the URL's password. In Swarm use `DATABASE_PASSWORD_FILE=/run/secrets/db_password`, the same secret the postgres service reads via `POSTGRES_PASSWORD_FILE` |
 | `DATABASE_POOL_MAX` | no | `10` | Per replica. Keep `replicas × pool max` under Postgres's `max_connections` (100 by default) |
-| `SESSION_SECRET` | from stage 2 | — | Use `SESSION_SECRET_FILE` in Swarm |
+| `SESSION_SECRET` | in production | random per process (development only) | At least 32 bytes, the same on every replica. Use `SESSION_SECRET_FILE=/run/secrets/session_secret` in Swarm. Without it in development, sign-ins reset when the app restarts |
 | `REDIS_URL` | when real-time lands | — | e.g. `redis://redis:6379` |
 | `STATIC_DIR` | no | — | Path to the React build |
 | `NODE_ENV` | no | `development` | Set `production` in the image |
