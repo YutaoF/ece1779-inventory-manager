@@ -1,0 +1,43 @@
+body {
+  margin: 0;
+  padding: 24px;
+  font-family: Arial, sans-serif;
+  background-color: #f5f5f5;
+  color: #282828;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+p {
+  color: #555;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+}
+
+th,
+td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+}
+
+th {
+  background-color: #eee;
+}
+
+input {
+  padding: 10px;
+  margin-bottom: 16px;
+  width: 280px;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
