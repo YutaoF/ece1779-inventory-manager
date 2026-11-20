@@ -8,23 +8,24 @@ function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [user, setUser] = useState(null)
   const [isCheckingLogin, setIsCheckingLogin] = useState(true)
+  const [receiveProductId, setReceiveProductId] = useState('1')
+  const [receiveLocationId, setReceiveLocationId] = useState('1')
+  const [receiveQuantity, setReceiveQuantity] = useState('')
+  const [receiveMessage, setReceiveMessage] = useState('')
+  const [isReceiving, setIsReceiving] = useState(false)
+  const [issueProductId, setIssueProductId] = useState('1')
+  const [issueLocationId, setIssueLocationId] = useState('1')
+  const [issueQuantity, setIssueQuantity] = useState('')
+  const [issueMessage, setIssueMessage] = useState('')
+  const [isIssuing, setIsIssuing] = useState(false)
+  const [transferProductId, setTransferProductId] = useState('1')
+  const [sourceLocationId, setSourceLocationId] = useState('1')
+  const [destinationLocationId, setDestinationLocationId] = useState('2')
+  const [transferQuantity, setTransferQuantity] = useState('')
+  const [transferMessage, setTransferMessage] = useState('')
+  const [isTransferring, setIsTransferring] = useState(false)
 
-  const inventory = [
-    {
-      id: 1,
-      sku: 'P001',
-      name: 'Notebook',
-      location: 'Main Storage',
-      quantity: 20,
-    },
-    {
-      id: 2,
-      sku: 'P002',
-      name: 'Pen',
-      location: 'Main Storage',
-      quantity: 50,
-    },
-  ]
+  const inventory = []
 
   useEffect(() => {
     async function checkLogin() {
@@ -96,6 +97,135 @@ function App() {
     }
   }
 
+  async function handleReceive(event) {
+  event.preventDefault()
+  setReceiveMessage('')
+  setIsReceiving(true)
+
+  try {
+    const response = await fetch('/api/stock-operations/receive', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        productId: receiveProductId,
+        locationId: receiveLocationId,
+        quantity: Number(receiveQuantity),
+      }),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      setReceiveMessage(
+        `Received ${data.quantityReceived} units. Balance after receipt: ${data.quantityAfter}.`
+      )
+      setReceiveQuantity('')
+    } else if (response.status === 401) {
+      setUser(null)
+      setLoginMessage('Your session has expired. Please log in again.')
+      setReceiveMessage('')
+    } else {
+      setReceiveMessage(data.error?.message || 'Unable to receive stock.')
+    }
+  } catch {
+    setReceiveMessage(
+      'No confirmation received. Check the inventory before submitting again.'
+    )
+  } finally {
+    setIsReceiving(false)
+  }
+}
+
+async function handleIssue(event) {
+  event.preventDefault()
+  setIssueMessage('')
+  setIsIssuing(true)
+
+  try {
+    const response = await fetch('/api/stock-operations/issue', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        productId: issueProductId,
+        locationId: issueLocationId,
+        quantity: Number(issueQuantity),
+      }),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      setIssueMessage(
+        `Issued ${data.quantityIssued} units. Balance after issue: ${data.quantityAfter}.`
+      )
+      setIssueQuantity('')
+    } else if (response.status === 401) {
+      setUser(null)
+      setLoginMessage('Your session has expired. Please log in again.')
+      setIssueMessage('')
+    } else {
+      setIssueMessage(data.error?.message || 'Unable to issue stock.')
+    }
+  } catch {
+    setIssueMessage(
+      'No confirmation received. Check the inventory before submitting again.'
+    )
+  } finally {
+    setIsIssuing(false)
+  }
+}
+
+async function handleTransfer(event) {
+  event.preventDefault()
+  setTransferMessage('')
+
+  if (sourceLocationId === destinationLocationId) {
+    setTransferMessage('Please select two different locations.')
+    return
+  }
+
+  setIsTransferring(true)
+
+  try {
+    const response = await fetch('/api/stock-operations/transfer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        productId: transferProductId,
+        sourceLocationId,
+        destinationLocationId,
+        quantity: Number(transferQuantity),
+      }),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      setTransferMessage(
+        `Transferred ${data.quantityTransferred} units. Source balance: ${data.sourceQuantityAfter}. Destination balance: ${data.destinationQuantityAfter}.`
+      )
+      setTransferQuantity('')
+    } else if (response.status === 401) {
+      setUser(null)
+      setLoginMessage('Your session has expired. Please log in again.')
+      setTransferMessage('')
+    } else {
+      setTransferMessage(data.error?.message || 'Unable to transfer stock.')
+    }
+  } catch {
+    setTransferMessage(
+      'No confirmation received. Check the inventory before submitting again.'
+    )
+  } finally {
+    setIsTransferring(false)
+  }
+}
   return (
     <div>
       <header className="top-bar">
@@ -189,6 +319,146 @@ function App() {
                 ))}
             </tbody>
           </table>
+          <h2>Receive Stock</h2>
+          <form className="stock-form" onSubmit={handleReceive}>
+            <label htmlFor="receive-product">Product</label>
+            <select
+              id="receive-product"
+              value={receiveProductId}
+              onChange={(event) => setReceiveProductId(event.target.value)}
+            >
+              <option value="1">A001 - iPhone</option>
+              <option value="2">A002 - iPad</option>
+              <option value="3">A003 - MacBook Air</option>
+              <option value="4">A004 - AirPods</option>
+            </select>
+
+            <label htmlFor="receive-location">Location</label>
+            <select
+              id="receive-location"
+              value={receiveLocationId}
+              onChange={(event) => setReceiveLocationId(event.target.value)}
+            >
+              <option value="1">Main Warehouse</option>
+              <option value="2">Toronto Store</option>
+            </select>
+
+            <label htmlFor="receive-quantity">Quantity</label>
+            <input
+              id="receive-quantity"
+              type="number"
+              min="1"
+              max="2147483647"
+              step="1"
+              required
+              value={receiveQuantity}
+              onChange={(event) => setReceiveQuantity(event.target.value)}
+            />
+
+            <button type="submit" disabled={isReceiving}>
+              {isReceiving ? 'Receiving...' : 'Receive'}
+            </button>
+
+            <p role="status">{receiveMessage}</p>
+          </form>
+
+          <h2>Issue Stock</h2>
+
+          <form className="stock-form" onSubmit={handleIssue}>
+            <label htmlFor="issue-product">Product</label>
+            <select
+              id="issue-product"
+              value={issueProductId}
+              onChange={(event) => setIssueProductId(event.target.value)}
+            >
+              <option value="1">A001 - iPhone</option>
+              <option value="2">A002 - iPad</option>
+              <option value="3">A003 - MacBook Air</option>
+              <option value="4">A004 - AirPods</option>
+            </select>
+
+            <label htmlFor="issue-location">Location</label>
+            <select
+              id="issue-location"
+              value={issueLocationId}
+              onChange={(event) => setIssueLocationId(event.target.value)}
+            >
+              <option value="1">Main Warehouse</option>
+              <option value="2">Toronto Store</option>
+            </select>
+
+            <label htmlFor="issue-quantity">Quantity</label>
+            <input
+              id="issue-quantity"
+              type="number"
+              min="1"
+              max="2147483647"
+              step="1"
+              required
+              value={issueQuantity}
+              onChange={(event) => setIssueQuantity(event.target.value)}
+            />
+
+            <button type="submit" disabled={isIssuing}>
+              {isIssuing ? 'Issuing...' : 'Issue'}
+            </button>
+
+            <p role="status">{issueMessage}</p>
+          </form>
+
+          <h2>Transfer Stock</h2>
+
+          <form className="stock-form" onSubmit={handleTransfer}>
+            <label htmlFor="transfer-product">Product</label>
+            <select
+              id="transfer-product"
+              value={transferProductId}
+              onChange={(event) => setTransferProductId(event.target.value)}
+            >
+              <option value="1">A001 - iPhone</option>
+              <option value="2">A002 - iPad</option>
+              <option value="3">A003 - MacBook Air</option>
+              <option value="4">A004 - AirPods</option>
+            </select>
+
+            <label htmlFor="transfer-source">From</label>
+            <select
+              id="transfer-source"
+              value={sourceLocationId}
+              onChange={(event) => setSourceLocationId(event.target.value)}
+            >
+              <option value="1">Main Warehouse</option>
+              <option value="2">Toronto Store</option>
+            </select>
+
+            <label htmlFor="transfer-destination">To</label>
+            <select
+              id="transfer-destination"
+              value={destinationLocationId}
+              onChange={(event) => setDestinationLocationId(event.target.value)}
+            >
+              <option value="1">Main Warehouse</option>
+              <option value="2">Toronto Store</option>
+            </select>
+
+            <label htmlFor="transfer-quantity">Quantity</label>
+            <input
+              id="transfer-quantity"
+              type="number"
+              min="1"
+              max="2147483647"
+              step="1"
+              required
+              value={transferQuantity}
+              onChange={(event) => setTransferQuantity(event.target.value)}
+            />
+
+            <button type="submit" disabled={isTransferring}>
+              {isTransferring ? 'Transferring...' : 'Transfer'}
+            </button>
+
+            <p role="status">{transferMessage}</p>
+          </form>
         </section>
       )}
     </div>

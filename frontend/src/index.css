@@ -87,3 +87,31 @@ input {
   font-size: 13px;
   text-align: right;
 }
+
+.stock-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stock-form select,
+.stock-form input,
+.stock-form button {
+  padding: 8px;
+  font-size: 14px;
+}
+
+.stock-form input {
+  width: 100px;
+  margin-bottom: 0;
+}
+
+.stock-form button {
+  cursor: pointer;
+}
+
+.stock-form p {
+  width: 100%;
+  margin: 0;
+}
