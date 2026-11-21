@@ -136,3 +136,27 @@ input {
 .history-table {
   overflow-x: auto;
 }
+
+.dashboard-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dashboard-card {
+  min-width: 160px;
+  padding: 16px 24px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.dashboard-card h3 {
+  margin: 0 0 8px;
+}
+
+.dashboard-card p {
+  margin: 0;
+  font-size: 28px;
+  font-weight: bold;
+}

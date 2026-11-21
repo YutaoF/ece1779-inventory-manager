@@ -35,6 +35,10 @@ function App() {
   const [inventoryVersion, setInventoryVersion] = useState(0)
   const [movements, setMovements] = useState([])
   const [historyMessage, setHistoryMessage] = useState('')
+  const [thresholdInventoryId, setThresholdInventoryId] = useState('')
+  const [thresholdValue, setThresholdValue] = useState('')
+  const [thresholdMessage, setThresholdMessage] = useState('')
+  const [isSavingThreshold, setIsSavingThreshold] = useState(false)
 
   useEffect(() => {
     async function checkLogin() {
@@ -381,6 +385,98 @@ async function handleCorrection(event) {
   }
 }
 
+function handleThresholdSelection(event) {
+  const selectedId = event.target.value
+  const selectedItem = inventory.find((item) => item.id === selectedId)
+
+  setThresholdInventoryId(selectedId)
+  setThresholdValue(
+    selectedItem?.reorderThreshold == null
+      ? ''
+      : String(selectedItem.reorderThreshold)
+  )
+  setThresholdMessage('')
+}
+
+async function handleThresholdSubmit(event) {
+  event.preventDefault()
+  setThresholdMessage('')
+
+  const selectedItem = inventory.find(
+    (item) => item.id === thresholdInventoryId
+  )
+
+  if (!selectedItem) {
+    setThresholdMessage('Please select a product and location.')
+    return
+  }
+
+  const threshold =
+    thresholdValue === '' ? null : Number(thresholdValue)
+
+  if (
+    threshold !== null &&
+    (!Number.isInteger(threshold) ||
+      threshold < 0 ||
+      threshold > 2147483647)
+  ) {
+    setThresholdMessage('Enter a whole number from 0 to 2147483647.')
+    return
+  }
+
+  setIsSavingThreshold(true)
+
+  try {
+    const response = await fetch(
+      `/api/inventory/${selectedItem.productId}/${selectedItem.locationId}/threshold`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reorderThreshold: threshold,
+        }),
+      }
+    )
+
+    const data = await response.json()
+
+    if (response.ok) {
+      setThresholdMessage(
+        data.reorderThreshold === null
+          ? 'Threshold cleared.'
+          : `${selectedItem.location} - Threshold saved: ${selectedItem.name}, ${data.reorderThreshold} units.`
+      )
+      setInventoryVersion((version) => version + 1)
+    } else if (response.status === 401) {
+      setUser(null)
+      setLoginMessage('Your session has expired. Please log in again.')
+      setThresholdMessage('')
+    } else {
+      setThresholdMessage(
+        data.error?.message || 'Unable to save threshold.'
+      )
+    }
+  } catch {
+    setThresholdMessage('Unable to confirm whether the threshold was saved.')
+  } finally {
+    setIsSavingThreshold(false)
+  }
+}
+
+const activeInventory = inventory.filter(
+  (item) => !item.productArchived && !item.locationArchived
+)
+
+const lowStockItems = activeInventory.filter(
+  (item) => item.stockStatus === 'low'
+)
+
+const outOfStockItems = activeInventory.filter(
+  (item) => item.stockStatus === 'out_of_stock'
+)
+
   return (
     <div>
         <header className="top-bar">
@@ -444,6 +540,20 @@ async function handleCorrection(event) {
 
         {user && (
           <section>
+            <h2>Stock Dashboard</h2>
+
+            <div className="dashboard-summary">
+              <div className="dashboard-card">
+                <h3>Low Stock</h3>
+                <p>{lowStockItems.length}</p>
+              </div>
+
+              <div className="dashboard-card">
+                <h3>Out of Stock</h3>
+                <p>{outOfStockItems.length}</p>
+              </div>
+            </div>
+
             <h2>Inventory</h2>
             <p role="status">{inventoryMessage}</p>
 
@@ -674,6 +784,50 @@ async function handleCorrection(event) {
                   </button>
 
                   <p role="status">{correctionMessage}</p>
+                </form>
+              </div>
+            )}
+
+            {user.role === 'manager' && (
+              <div>
+                <h2>Reorder Threshold</h2>
+
+                <form className="stock-form" onSubmit={handleThresholdSubmit}>
+                  <label htmlFor="threshold-inventory">Inventory</label>
+                  <select
+                    id="threshold-inventory"
+                    required
+                    value={thresholdInventoryId}
+                    onChange={handleThresholdSelection}
+                  >
+                    <option value="">Select product and location</option>
+
+                    {inventory
+                      .filter((item) => !item.productArchived && !item.locationArchived)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.sku} - {item.name} / {item.location}
+                        </option>
+                      ))}
+                  </select>
+
+                  <label htmlFor="threshold-value">Threshold</label>
+                  <input
+                    id="threshold-value"
+                    type="number"
+                    min="0"
+                    max="2147483647"
+                    step="1"
+                    value={thresholdValue}
+                    onChange={(event) => setThresholdValue(event.target.value)}
+                  />
+
+                  <button type="submit" disabled={isSavingThreshold}>
+                    {isSavingThreshold ? 'Saving...' : 'Save Threshold'}
+                  </button>
+
+                  <p>Leave blank to clear the threshold.</p>
+                  <p role="status">{thresholdMessage}</p>
                 </form>
               </div>
             )}
