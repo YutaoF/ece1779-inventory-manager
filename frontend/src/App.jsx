@@ -24,6 +24,12 @@ function App() {
   const [transferQuantity, setTransferQuantity] = useState('')
   const [transferMessage, setTransferMessage] = useState('')
   const [isTransferring, setIsTransferring] = useState(false)
+  const [correctionProductId, setCorrectionProductId] = useState('1')
+  const [correctionLocationId, setCorrectionLocationId] = useState('1')
+  const [quantityDelta, setQuantityDelta] = useState('')
+  const [correctionReason, setCorrectionReason] = useState('')
+  const [correctionMessage, setCorrectionMessage] = useState('')
+  const [isCorrecting, setIsCorrecting] = useState(false)
 
   const inventory = []
 
@@ -226,6 +232,66 @@ async function handleTransfer(event) {
     setIsTransferring(false)
   }
 }
+
+async function handleCorrection(event) {
+  event.preventDefault()
+  setCorrectionMessage('')
+
+  const adjustment = Number(quantityDelta)
+  const reason = correctionReason.trim()
+
+  if (!Number.isInteger(adjustment) || adjustment === 0) {
+    setCorrectionMessage('Please enter a non-zero integer')
+    return
+  }
+
+  if (!reason) {
+    setCorrectionMessage('Please enter a reason')
+    return
+  }
+
+  setIsCorrecting(true)
+
+  try {
+    const response = await fetch('/api/stock-operations/correction', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        productId: correctionProductId,
+        locationId: correctionLocationId,
+        quantityDelta: adjustment,
+        reason,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      setCorrectionMessage(
+        `Correction applied. Balance after correction: ${data.quantityAfter}`
+      )
+      setQuantityDelta('')
+      setCorrectionReason('')
+    } else if (response.status === 401) {
+      setUser(null)
+      setLoginMessage('Your session has expired. Please log in again.')
+      setCorrectionMessage('')
+    } else {
+      setCorrectionMessage(
+        data.error?.message || 'Unable to correct stock.'
+      )
+    }
+  } catch {
+    setCorrectionMessage(
+      'No confirmation received. Check the inventory before submitting again.'
+    )
+  } finally {
+    setIsCorrecting(false)
+  }
+}
+
   return (
     <div>
         <header className="top-bar">
@@ -464,6 +530,63 @@ async function handleTransfer(event) {
 
               <p role="status">{transferMessage}</p>
             </form>
+
+            {user.role === 'manager' && (
+              <div>
+                <h2>Stock Correction</h2>
+
+                <form className="stock-form" onSubmit={handleCorrection}>
+                  <label htmlFor="correction-product">Product</label>
+                  <select
+                    id="correction-product"
+                    value={correctionProductId}
+                    onChange={(event) => setCorrectionProductId(event.target.value)}
+                  >
+                    <option value="1">A001 - iPhone</option>
+                    <option value="2">A002 - iPad</option>
+                    <option value="3">A003 - MacBook Air</option>
+                    <option value="4">A004 - AirPods</option>
+                  </select>
+
+                  <label htmlFor="correction-location">Location</label>
+                  <select
+                    id="correction-location"
+                    value={correctionLocationId}
+                    onChange={(event) => setCorrectionLocationId(event.target.value)}
+                  >
+                    <option value="1">Main Warehouse</option>
+                    <option value="2">Toronto Store</option>
+                  </select>
+
+                  <label htmlFor="correction-delta">Adjustment (+/−)</label>
+                  <input
+                    id="correction-delta"
+                    type="number"
+                    min="-2147483648"
+                    max="2147483647"
+                    step="1"
+                    required
+                    value={quantityDelta}
+                    onChange={(event) => setQuantityDelta(event.target.value)}
+                  />
+
+                  <label htmlFor="correction-reason">Reason</label>
+                  <input
+                    id="correction-reason"
+                    type="text"
+                    required
+                    value={correctionReason}
+                    onChange={(event) => setCorrectionReason(event.target.value)}
+                  />
+
+                  <button type="submit" disabled={isCorrecting}>
+                    {isCorrecting ? 'Applying...' : 'Apply Correction'}
+                  </button>
+
+                  <p role="status">{correctionMessage}</p>
+                </form>
+              </div>
+            )}
           </section>
         )}
       </main>

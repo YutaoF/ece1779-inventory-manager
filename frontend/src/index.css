@@ -128,3 +128,7 @@ input {
 .login-notice p {
   font-size: 28px;
 }
+
+.page-content {
+  padding: 24px 40px;
+}
