@@ -30,12 +30,11 @@ function App() {
   const [correctionReason, setCorrectionReason] = useState('')
   const [correctionMessage, setCorrectionMessage] = useState('')
   const [isCorrecting, setIsCorrecting] = useState(false)
-
   const [inventory, setInventory] = useState([])
   const [inventoryMessage, setInventoryMessage] = useState('')
-
-
   const [inventoryVersion, setInventoryVersion] = useState(0)
+  const [movements, setMovements] = useState([])
+  const [historyMessage, setHistoryMessage] = useState('')
 
   useEffect(() => {
     async function checkLogin() {
@@ -98,6 +97,47 @@ function App() {
       cancelled = true
     }
  }, [user, inventoryVersion])
+
+ useEffect(() => {
+    let cancelled = false
+
+    async function loadHistory() {
+      setMovements([])
+      setHistoryMessage('Loading history...')
+
+      try {
+        const response = await fetch('/api/movements')
+        const data = await response.json()
+
+        if (cancelled) return
+
+        if (response.ok) {
+          setMovements(data.movements)
+          setHistoryMessage('')
+        } else if (response.status === 401) {
+          setUser(null)
+          setLoginMessage('Please log in again.')
+          setHistoryMessage('')
+        } else {
+          setHistoryMessage(
+            data.error?.message || 'Unable to load history.'
+          )
+        }
+      } catch {
+        if (!cancelled) {
+          setHistoryMessage('Unable to load history.')
+        }
+      }
+    }
+
+    if (user) {
+      loadHistory()
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, inventoryVersion])
 
   async function handleLogin(event) {
     event.preventDefault()
@@ -637,6 +677,45 @@ async function handleCorrection(event) {
                 </form>
               </div>
             )}
+
+            <h2>Movement History</h2>
+              <p role="status">{historyMessage}</p>
+              <div className="history-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Product</th>
+                      <th>Location</th>
+                      <th>Operation</th>
+                      <th>Change</th>
+                      <th>Balance After</th>
+                      <th>User</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {movements.map((movement) => (
+                      <tr key={movement.id}>
+                        <td>{new Date(movement.createdAt).toLocaleString()}</td>
+                        <td>
+                          {movement.sku} - {movement.name}
+                        </td>
+                        <td>{movement.location}</td>
+                        <td>{movement.operation}</td>
+                        <td>
+                          {movement.quantityDelta > 0 ? '+' : ''}
+                          {movement.quantityDelta}
+                        </td>
+                        <td>{movement.quantityAfter ?? '—'}</td>
+                        <td>{movement.actorName}</td>
+                        <td>{movement.reason || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
           </section>
         )}
       </main>

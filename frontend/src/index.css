@@ -132,3 +132,7 @@ input {
 .page-content {
   padding: 24px 40px;
 }
+
+.history-table {
+  overflow-x: auto;
+}
