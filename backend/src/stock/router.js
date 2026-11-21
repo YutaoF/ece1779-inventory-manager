@@ -41,7 +41,7 @@ function handleAction(service, actionFields) {
       const mapping = err instanceof StockError && httpErrors[err.code];
       if (!mapping) throw err;
       const [status, code] = mapping;
-      throw new HttpError(status, code, status === 401 ? 'Sign in to continue.' : err.message);
+      throw new HttpError(status, code, status === 401 ? 'Sign in to continue.' : err.message, err.details);
     }
   };
 }
