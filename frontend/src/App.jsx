@@ -31,7 +31,11 @@ function App() {
   const [correctionMessage, setCorrectionMessage] = useState('')
   const [isCorrecting, setIsCorrecting] = useState(false)
 
-  const inventory = []
+  const [inventory, setInventory] = useState([])
+  const [inventoryMessage, setInventoryMessage] = useState('')
+
+
+  const [inventoryVersion, setInventoryVersion] = useState(0)
 
   useEffect(() => {
     async function checkLogin() {
@@ -53,6 +57,47 @@ function App() {
 
     checkLogin()
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadInventory() {
+      setInventory([])
+      setInventoryMessage('Loading inventory...')
+
+      try {
+        const response = await fetch('/api/inventory')
+        const data = await response.json()
+
+        if (cancelled) return
+
+        if (response.ok) {
+          setInventory(data.inventory)
+          setInventoryMessage('')
+        } else if (response.status === 401) {
+          setUser(null)
+          setLoginMessage('Please log in again.')
+          setInventoryMessage('')
+        } else {
+          setInventoryMessage(
+            data.error?.message || 'Unable to load inventory.'
+          )
+        }
+      } catch {
+        if (!cancelled) {
+          setInventoryMessage('Unable to load inventory.')
+        }
+      }
+    }
+
+    if (user) {
+      loadInventory()
+    }
+
+    return () => {
+      cancelled = true
+    }
+ }, [user, inventoryVersion])
 
   async function handleLogin(event) {
     event.preventDefault()
@@ -128,6 +173,7 @@ function App() {
         `Received ${data.quantityReceived} units. Balance after receipt: ${data.quantityAfter}.`
       )
       setReceiveQuantity('')
+      setInventoryVersion((version) => version + 1)
     } else if (response.status === 401) {
       setUser(null)
       setLoginMessage('Your session has expired. Please log in again.')
@@ -169,6 +215,7 @@ async function handleIssue(event) {
         `Issued ${data.quantityIssued} units. Balance after issue: ${data.quantityAfter}.`
       )
       setIssueQuantity('')
+      setInventoryVersion((version) => version + 1)
     } else if (response.status === 401) {
       setUser(null)
       setLoginMessage('Your session has expired. Please log in again.')
@@ -217,6 +264,7 @@ async function handleTransfer(event) {
         `Transferred ${data.quantityTransferred} units. Source balance: ${data.sourceQuantityAfter}. Destination balance: ${data.destinationQuantityAfter}.`
       )
       setTransferQuantity('')
+      setInventoryVersion((version) => version + 1)
     } else if (response.status === 401) {
       setUser(null)
       setLoginMessage('Your session has expired. Please log in again.')
@@ -274,6 +322,7 @@ async function handleCorrection(event) {
       )
       setQuantityDelta('')
       setCorrectionReason('')
+      setInventoryVersion((version) => version + 1)
     } else if (response.status === 401) {
       setUser(null)
       setLoginMessage('Your session has expired. Please log in again.')
@@ -356,6 +405,7 @@ async function handleCorrection(event) {
         {user && (
           <section>
             <h2>Inventory</h2>
+            <p role="status">{inventoryMessage}</p>
 
             <input
               type="text"
