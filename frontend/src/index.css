@@ -160,3 +160,12 @@ input {
   font-size: 28px;
   font-weight: bold;
 }
+
+button.dashboard-card {
+  cursor: pointer;
+}
+
+.location-filter-label {
+  margin-left: 24px;
+  margin-right: 10px;
+}

@@ -40,6 +40,8 @@ function App() {
   const [thresholdValue, setThresholdValue] = useState('')
   const [thresholdMessage, setThresholdMessage] = useState('')
   const [isSavingThreshold, setIsSavingThreshold] = useState(false)
+  const [dashboardView, setDashboardView] = useState('')
+  const [locationFilter, setLocationFilter] = useState('')
 
   useEffect(() => {
     // Check login
@@ -489,6 +491,21 @@ function App() {
     (item) => item.stockStatus === 'out_of_stock'
   )
 
+  const inventoryLocations = []
+
+  // Collect locations
+  for (const item of inventory) {
+    const alreadyAdded = inventoryLocations.some(
+      (location) => location.id === item.locationId
+    )
+
+    if (!alreadyAdded) {
+      inventoryLocations.push({
+        id: item.locationId,
+        name: item.location,
+      })
+    }
+  }
   return (
     <div>
       <header className="top-bar">
@@ -555,27 +572,127 @@ function App() {
             <h2>Stock Dashboard</h2>
 
             <div className="dashboard-summary">
-              <div className="dashboard-card">
+              <button
+                type="button"
+                className="dashboard-card"
+                aria-expanded={dashboardView === 'low'}
+                onClick={() => {
+                  if (dashboardView === 'low') {
+                    setDashboardView('')
+                  } else {
+                    setDashboardView('low')
+                  }
+                }}
+              >
                 <h3>Low Stock</h3>
                 <p>{lowStockItems.length}</p>
-              </div>
+              </button>
 
-              <div className="dashboard-card">
+              <button
+                type="button"
+                className="dashboard-card"
+                aria-expanded={dashboardView === 'out_of_stock'}
+                onClick={() => {
+                  if (dashboardView === 'out_of_stock') {
+                    setDashboardView('')
+                  } else {
+                    setDashboardView('out_of_stock')
+                  }
+                }}
+              >
                 <h3>Out of Stock</h3>
                 <p>{outOfStockItems.length}</p>
-              </div>
+              </button>
             </div>
+
+            {dashboardView === 'low' && (
+              <div>
+                <h3>Low Stock Details</h3>
+
+                <table>
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Product</th>
+                      <th>Location</th>
+                      <th>Quantity</th>
+                      <th>Threshold</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {lowStockItems.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.sku}</td>
+                        <td>{item.name}</td>
+                        <td>{item.location}</td>
+                        <td>{item.quantity}</td>
+                        <td>{item.reorderThreshold}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {dashboardView === 'out_of_stock' && (
+              <div>
+                <h3>Out of Stock Details</h3>
+
+                <table>
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Product</th>
+                      <th>Location</th>
+                      <th>Quantity</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {outOfStockItems.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.sku}</td>
+                        <td>{item.name}</td>
+                        <td>{item.location}</td>
+                        <td>{item.quantity}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             <h2>Inventory</h2>
             <p role="status">{inventoryMessage}</p>
 
             <input
               type="text"
-              placeholder="Search by product name"
-              aria-label="Search by product name"
+              placeholder="Search by product name or SKU"
+              aria-label="Search by product name or SKU"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
+
+            <label
+              htmlFor="inventory-location"
+              className="location-filter-label"
+            >
+              Location
+            </label>
+            <select
+              id="inventory-location"
+              value={locationFilter}
+              onChange={(event) => setLocationFilter(event.target.value)}
+            >
+              <option value="">All Locations</option>
+
+              {inventoryLocations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+            </select>
 
             <table>
               <thead>
@@ -590,7 +707,12 @@ function App() {
               <tbody>
                 {inventory
                   .filter((item) =>
-                    item.name.toLowerCase().includes(search.toLowerCase())
+                    item.name.toLowerCase().includes(search.toLowerCase()) ||
+                    item.sku.toLowerCase().includes(search.toLowerCase())
+                  )
+                  .filter((item) =>
+                    locationFilter === '' ||
+                    item.locationId === locationFilter
                   )
                   .map((item) => (
                     <tr key={item.id}>
