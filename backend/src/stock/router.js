@@ -1,10 +1,7 @@
 import { Router } from 'express';
 import { HttpError } from '../middleware/errors.js';
-import { correctStock } from './correct-stock.js';
-import { issueStock } from './issue-stock.js';
-import { receiveStock } from './receive-stock.js';
-import { StockError } from './stock-operation.js';
-import { transferStock } from './transfer-stock.js';
+import { notifyAfterCommit } from '../inventory/notify-after-commit.js';
+import { applyStockChangeWithOutcome, StockError } from './stock-operation.js';
 
 const httpErrors = {
   INVALID_INPUT: [400, 'validation_failed'],
@@ -20,7 +17,7 @@ const httpErrors = {
   REQUEST_KEY_CONFLICT: [409, 'request_key_conflict'],
 };
 
-function handleAction(service, actionFields) {
+function handleAction(operationType, actionFields) {
   const allowed = new Set(['productId', 'reason', 'clientRequestKey', ...actionFields]);
   return async (req, res) => {
     const actorId = req.session?.userId;
@@ -35,7 +32,8 @@ function handleAction(service, actionFields) {
       }
     }
     try {
-      const result = await service(req.app.locals.pool, { ...body, actorId });
+      const { result, applied } = await applyStockChangeWithOutcome(req.app.locals.pool, { ...body, actorId }, operationType);
+      if (applied) void notifyAfterCommit(req);
       res.json(result);
     } catch (err) {
       const mapping = err instanceof StockError && httpErrors[err.code];
@@ -48,9 +46,9 @@ function handleAction(service, actionFields) {
 
 export function stockRouter() {
   const router = Router();
-  router.post('/receive', handleAction(receiveStock, ['locationId', 'quantity']));
-  router.post('/issue', handleAction(issueStock, ['locationId', 'quantity']));
-  router.post('/correction', handleAction(correctStock, ['locationId', 'quantityDelta']));
-  router.post('/transfer', handleAction(transferStock, ['sourceLocationId', 'destinationLocationId', 'quantity']));
+  router.post('/receive', handleAction('receive', ['locationId', 'quantity']));
+  router.post('/issue', handleAction('issue', ['locationId', 'quantity']));
+  router.post('/correction', handleAction('correction', ['locationId', 'quantityDelta']));
+  router.post('/transfer', handleAction('transfer', ['sourceLocationId', 'destinationLocationId', 'quantity']));
   return router;
 }

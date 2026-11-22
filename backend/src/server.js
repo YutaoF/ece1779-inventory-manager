@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto';
+import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
 import { createLogger } from './logger.js';
+import { attachRealtime } from './realtime.js';
 
 let config;
 try {
@@ -30,13 +32,23 @@ const app = createApp({
   sessionSecret, isProduction: config.isProduction,
 });
 
-const server = app.listen(config.port, config.host, () => {
-  logger.info('listening', { host: config.host, port: config.port, nodeEnv: config.nodeEnv });
-});
-
+const server = createServer(app);
 server.on('error', (err) => {
   logger.error('server error', { err });
   process.exit(1);
+});
+let realtime;
+try {
+  if (config.isProduction && !config.redisUrl) throw new Error('Set REDIS_URL for cross-replica notifications.');
+  realtime = await attachRealtime(server, app, { redisUrl: config.redisUrl });
+} catch (err) {
+  logger.error('could not start realtime service', { err });
+  await app.locals.sessionStore?.close();
+  await pool.end();
+  process.exit(1);
+}
+server.listen(config.port, config.host, () => {
+  logger.info('listening', { host: config.host, port: config.port, nodeEnv: config.nodeEnv });
 });
 
 /**
@@ -45,7 +57,7 @@ server.on('error', (err) => {
  * then exit. If that takes longer than SHUTDOWN_TIMEOUT_MS, exit anyway.
  */
 let shuttingDown = false;
-function shutdown(signal) {
+async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   app.locals.shuttingDown = true;
@@ -57,17 +69,17 @@ function shutdown(signal) {
   }, config.shutdownTimeoutMs);
   forceExit.unref();
 
-  server.close(async () => {
-    try {
-      await app.locals.sessionStore?.close();
-      await pool.end();
-    } catch (err) {
-      logger.warn('error closing database pool', { err });
-    }
+  try {
+    const closed = realtime.close(); // Closes WebSockets and then drains the shared HTTP server.
+    server.closeIdleConnections();
+    await closed;
+    await app.locals.sessionStore?.close();
+    await pool.end();
     logger.info('shutdown complete');
-    process.exit(0);
-  });
-  server.closeIdleConnections();
+  } catch (err) {
+    logger.error('shutdown failed', { err });
+    process.exit(1);
+  }
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));

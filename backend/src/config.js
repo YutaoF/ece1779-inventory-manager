@@ -90,7 +90,7 @@ export function loadConfig(env = process.env) {
       poolMax: readInteger(env, 'DATABASE_POOL_MAX', 10, { min: 1, max: 100 }),
     },
     sessionSecret,
-    // Used by Socket.IO's Redis adapter once real-time updates land.
+    // Socket.IO uses a shared Redis adapter when this is configured.
     redisUrl: readSetting(env, 'REDIS_URL'),
     // Directory holding the built React app. When unset, only the API is served.
     staticDir: readSetting(env, 'STATIC_DIR'),

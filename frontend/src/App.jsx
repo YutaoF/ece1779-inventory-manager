@@ -1,14 +1,51 @@
 import { useEffect, useState } from 'react'
+import { io } from 'socket.io-client'
 
 // Main component
 function App() {
+  const [user, setUser] = useState(null)
+  const [loginMessage, setLoginMessage] = useState('')
+  const [isCheckingLogin, setIsCheckingLogin] = useState(true)
+
+  useEffect(() => {
+    const request = new AbortController()
+    async function checkLogin() {
+      try {
+        const response = await fetch('/api/auth/me', { signal: request.signal })
+        if (response.ok) {
+          const data = await response.json()
+          if (!request.signal.aborted) setUser(data.user)
+        } else if (response.status !== 401) {
+          setLoginMessage('Unable to check login status.')
+        }
+      } catch {
+        if (!request.signal.aborted) setLoginMessage('Unable to connect to the server.')
+      } finally {
+        if (!request.signal.aborted) setIsCheckingLogin(false)
+      }
+    }
+    checkLogin()
+    return () => request.abort()
+  }, [])
+
+  // Changing accounts discards the previous user's snapshots, filters and form state.
+  return (
+    <InventoryManager
+      key={user?.id ?? 'guest'}
+      user={user}
+      setUser={setUser}
+      loginMessage={loginMessage}
+      setLoginMessage={setLoginMessage}
+      isCheckingLogin={isCheckingLogin}
+    />
+  )
+}
+
+function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isCheckingLogin }) {
   const [search, setSearch] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loginMessage, setLoginMessage] = useState('')
   const [isLoggingIn, setIsLoggingIn] = useState(false)
-  const [user, setUser] = useState(null)
-  const [isCheckingLogin, setIsCheckingLogin] = useState(true)
   const [receiveProductId, setReceiveProductId] = useState('1')
   const [receiveLocationId, setReceiveLocationId] = useState('1')
   const [receiveQuantity, setReceiveQuantity] = useState('')
@@ -32,10 +69,10 @@ function App() {
   const [correctionMessage, setCorrectionMessage] = useState('')
   const [isCorrecting, setIsCorrecting] = useState(false)
   const [inventory, setInventory] = useState([])
-  const [inventoryMessage, setInventoryMessage] = useState('')
+  const [inventoryMessage, setInventoryMessage] = useState('Loading inventory...')
   const [inventoryVersion, setInventoryVersion] = useState(0)
   const [movements, setMovements] = useState([])
-  const [historyMessage, setHistoryMessage] = useState('')
+  const [historyMessage, setHistoryMessage] = useState('Loading history...')
   const [thresholdInventoryId, setThresholdInventoryId] = useState('')
   const [thresholdValue, setThresholdValue] = useState('')
   const [thresholdMessage, setThresholdMessage] = useState('')
@@ -44,40 +81,70 @@ function App() {
   const [locationFilter, setLocationFilter] = useState('')
 
   useEffect(() => {
-    // Check login
-    async function checkLogin() {
-      try {
-        const response = await fetch('/api/auth/me')
+    if (!user) return
 
-        if (response.ok) {
-          const data = await response.json()
-          setUser(data.user)
-        } else if (response.status !== 401) {
-          setLoginMessage('Unable to check login status.')
-        }
-      } catch {
-        setLoginMessage('Unable to connect to the server.')
-      } finally {
-        setIsCheckingLogin(false)
+    const socket = io({
+      path: '/api/socket.io/',
+      transports: ['websocket'],
+      autoConnect: false,
+    })
+    const refresh = () => setInventoryVersion((version) => version + 1)
+    let retryTimer
+    let retryDelay = 1000
+    function retryConnection() {
+      if (retryTimer !== undefined) return
+      retryTimer = setTimeout(() => {
+        retryTimer = undefined
+        socket.connect()
+      }, retryDelay)
+      retryDelay = Math.min(retryDelay * 2, 10000)
+    }
+    function handleConnect() {
+      retryDelay = 1000
+      // A fresh snapshot covers updates missed while the socket was disconnected.
+      refresh()
+    }
+    function handleAuthError(error) {
+      if (error.data?.code === 'unauthenticated') {
+        setUser(null)
+        setLoginMessage('Please log in again.')
+      } else if (error.data?.code === 'authentication_unavailable') {
+        // Socket.IO retries transport failures automatically. A handshake rejection needs an explicit retry.
+        retryConnection()
       }
     }
-
-    checkLogin()
-  }, [])
+    function handleDisconnect(reason) {
+      // Logout or expiry can end a live session from another tab or replica.
+      if (reason === 'io server disconnect') {
+        refresh()
+        retryConnection()
+      }
+    }
+    socket.on('inventory:changed', refresh)
+    socket.on('connect', handleConnect)
+    socket.on('connect_error', handleAuthError)
+    socket.on('disconnect', handleDisconnect)
+    socket.connect()
+    return () => {
+      socket.off('inventory:changed', refresh)
+      clearTimeout(retryTimer)
+      socket.off('connect', handleConnect)
+      socket.off('connect_error', handleAuthError)
+      socket.off('disconnect', handleDisconnect)
+      socket.disconnect()
+    }
+  }, [user, setUser, setLoginMessage])
 
   useEffect(() => {
-    let cancelled = false
+    const request = new AbortController()
 
     // Load inventory
     async function loadInventory() {
-      setInventory([])
-      setInventoryMessage('Loading inventory...')
-
       try {
-        const response = await fetch('/api/inventory')
+        const response = await fetch('/api/inventory', { signal: request.signal })
         const data = await response.json()
 
-        if (cancelled) return
+        if (request.signal.aborted) return
 
         if (response.ok) {
           setInventory(data.inventory)
@@ -92,7 +159,7 @@ function App() {
           )
         }
       } catch {
-        if (!cancelled) {
+        if (!request.signal.aborted) {
           setInventoryMessage('Unable to load inventory.')
         }
       }
@@ -102,24 +169,19 @@ function App() {
       loadInventory()
     }
 
-    return () => {
-      cancelled = true
-    }
-  }, [user, inventoryVersion])
+    return () => request.abort()
+  }, [user, inventoryVersion, setUser, setLoginMessage])
 
   useEffect(() => {
-    let cancelled = false
+    const request = new AbortController()
 
     // Load history
     async function loadHistory() {
-      setMovements([])
-      setHistoryMessage('Loading history...')
-
       try {
-        const response = await fetch('/api/movements')
+        const response = await fetch('/api/movements', { signal: request.signal })
         const data = await response.json()
 
-        if (cancelled) return
+        if (request.signal.aborted) return
 
         if (response.ok) {
           setMovements(data.movements)
@@ -134,7 +196,7 @@ function App() {
           )
         }
       } catch {
-        if (!cancelled) {
+        if (!request.signal.aborted) {
           setHistoryMessage('Unable to load history.')
         }
       }
@@ -144,10 +206,8 @@ function App() {
       loadHistory()
     }
 
-    return () => {
-      cancelled = true
-    }
-  }, [user, inventoryVersion])
+    return () => request.abort()
+  }, [user, inventoryVersion, setUser, setLoginMessage])
 
   // User login
   async function handleLogin(event) {

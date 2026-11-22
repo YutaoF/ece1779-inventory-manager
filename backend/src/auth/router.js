@@ -15,7 +15,11 @@ function requireSessions(req) {
 // express-session's methods take callbacks; these wrap them as promises.
 const regenerate = (req) => new Promise((resolve, reject) => req.session.regenerate((err) => (err ? reject(err) : resolve())));
 const save = (req) => new Promise((resolve, reject) => req.session.save((err) => (err ? reject(err) : resolve())));
-const destroy = (req) => new Promise((resolve, reject) => req.session.destroy((err) => (err ? reject(err) : resolve())));
+async function destroy(req) {
+  const sessionId = req.sessionID;
+  await new Promise((resolve, reject) => req.session.destroy((err) => (err ? reject(err) : resolve())));
+  req.app.locals.disconnectSession?.(sessionId);
+}
 
 function clearSessionCookie(req, res) {
   res.clearCookie(SESSION_COOKIE, { ...SESSION_COOKIE_OPTIONS, secure: req.secure });
@@ -57,7 +61,9 @@ export function authRouter() {
     }
 
     // New session ID on login prevents session fixation.
+    const previousSessionId = req.session.userId && req.sessionID;
     await regenerate(req);
+    if (previousSessionId) req.app.locals.disconnectSession?.(previousSessionId);
     req.session.userId = user.id;
     await save(req);
 

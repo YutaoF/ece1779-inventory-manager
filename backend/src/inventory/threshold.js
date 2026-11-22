@@ -1,5 +1,6 @@
 import { HttpError } from '../middleware/errors.js';
 import { idFilter } from '../routes/query-filters.js';
+import { notifyAfterCommit } from './notify-after-commit.js';
 
 function readThreshold(body) {
   if (!body || !Object.hasOwn(body, 'reorderThreshold') || Object.keys(body).length !== 1) {
@@ -20,6 +21,7 @@ export async function updateThreshold(req, res) {
   const client = await req.app.locals.pool.connect();
   let discardClient = false;
   let updated;
+  let changed;
   try {
     await client.query('BEGIN');
     // Keep authorization valid through the write if the account is demoted or disabled concurrently.
@@ -37,7 +39,7 @@ export async function updateThreshold(req, res) {
     const locationId = idFilter(req.params, 'locationId');
     const threshold = readThreshold(req.body);
     const { rows: [pair] } = await client.query(`
-      SELECT p.archived_at AS product_archived_at, l.archived_at AS location_archived_at
+      SELECT p.archived_at AS product_archived_at, l.archived_at AS location_archived_at, i.reorder_threshold
       FROM public.products AS p
       JOIN public.locations AS l ON l.id = $2
       JOIN public.inventory AS i ON i.product_id = p.id AND i.location_id = l.id
@@ -48,13 +50,14 @@ export async function updateThreshold(req, res) {
     if (pair.product_archived_at !== null) throw new HttpError(409, 'product_archived', 'The product is archived.');
     if (pair.location_archived_at !== null) throw new HttpError(409, 'location_archived', 'The location is archived.');
 
-    const { rows } = await client.query(`
-      UPDATE public.inventory SET reorder_threshold = $3
-      WHERE product_id = $1 AND location_id = $2
-      RETURNING product_id::text AS "productId", location_id::text AS "locationId",
-                reorder_threshold AS "reorderThreshold"
-    `, [productId, locationId, threshold]);
-    updated = rows[0];
+    changed = pair.reorder_threshold !== threshold;
+    if (changed) {
+      await client.query(`
+        UPDATE public.inventory SET reorder_threshold = $3
+        WHERE product_id = $1 AND location_id = $2
+      `, [productId, locationId, threshold]);
+    }
+    updated = { productId, locationId, reorderThreshold: threshold };
     await client.query('COMMIT');
   } catch (error) {
     try {
@@ -66,5 +69,6 @@ export async function updateThreshold(req, res) {
   } finally {
     client.release(discardClient);
   }
+  if (changed) void notifyAfterCommit(req);
   res.json(updated);
 }
