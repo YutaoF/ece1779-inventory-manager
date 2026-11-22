@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+// Main component
 function App() {
   const [search, setSearch] = useState('')
   const [email, setEmail] = useState('')
@@ -41,6 +42,7 @@ function App() {
   const [isSavingThreshold, setIsSavingThreshold] = useState(false)
 
   useEffect(() => {
+    // Check login
     async function checkLogin() {
       try {
         const response = await fetch('/api/auth/me')
@@ -64,6 +66,7 @@ function App() {
   useEffect(() => {
     let cancelled = false
 
+    // Load inventory
     async function loadInventory() {
       setInventory([])
       setInventoryMessage('Loading inventory...')
@@ -100,11 +103,12 @@ function App() {
     return () => {
       cancelled = true
     }
- }, [user, inventoryVersion])
+  }, [user, inventoryVersion])
 
- useEffect(() => {
+  useEffect(() => {
     let cancelled = false
 
+    // Load history
     async function loadHistory() {
       setMovements([])
       setHistoryMessage('Loading history...')
@@ -143,6 +147,7 @@ function App() {
     }
   }, [user, inventoryVersion])
 
+  // User login
   async function handleLogin(event) {
     event.preventDefault()
     setLoginMessage('')
@@ -173,6 +178,7 @@ function App() {
     }
   }
 
+  // User logout
   async function handleLogout() {
     setLoginMessage('')
 
@@ -192,346 +198,352 @@ function App() {
     }
   }
 
+  // Receive stock
   async function handleReceive(event) {
-  event.preventDefault()
-  setReceiveMessage('')
-  setIsReceiving(true)
+    event.preventDefault()
+    setReceiveMessage('')
+    setIsReceiving(true)
 
-  try {
-    const response = await fetch('/api/stock-operations/receive', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        productId: receiveProductId,
-        locationId: receiveLocationId,
-        quantity: Number(receiveQuantity),
-      }),
-    })
-
-    const data = await response.json()
-
-    if (response.ok) {
-      setReceiveMessage(
-        `Received ${data.quantityReceived} units. Balance after receipt: ${data.quantityAfter}.`
-      )
-      setReceiveQuantity('')
-      setInventoryVersion((version) => version + 1)
-    } else if (response.status === 401) {
-      setUser(null)
-      setLoginMessage('Your session has expired. Please log in again.')
-      setReceiveMessage('')
-    } else {
-      setReceiveMessage(data.error?.message || 'Unable to receive stock.')
-    }
-  } catch {
-    setReceiveMessage(
-      'No confirmation received. Check the inventory before submitting again.'
-    )
-  } finally {
-    setIsReceiving(false)
-  }
-}
-
-async function handleIssue(event) {
-  event.preventDefault()
-  setIssueMessage('')
-  setIsIssuing(true)
-
-  try {
-    const response = await fetch('/api/stock-operations/issue', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        productId: issueProductId,
-        locationId: issueLocationId,
-        quantity: Number(issueQuantity),
-      }),
-    })
-
-    const data = await response.json()
-
-    if (response.ok) {
-      setIssueMessage(
-        `Issued ${data.quantityIssued} units. Balance after issue: ${data.quantityAfter}.`
-      )
-      setIssueQuantity('')
-      setInventoryVersion((version) => version + 1)
-    } else if (response.status === 401) {
-      setUser(null)
-      setLoginMessage('Your session has expired. Please log in again.')
-      setIssueMessage('')
-    } else {
-      setIssueMessage(data.error?.message || 'Unable to issue stock.')
-    }
-  } catch {
-    setIssueMessage(
-      'No confirmation received. Check the inventory before submitting again.'
-    )
-  } finally {
-    setIsIssuing(false)
-  }
-}
-
-async function handleTransfer(event) {
-  event.preventDefault()
-  setTransferMessage('')
-
-  if (sourceLocationId === destinationLocationId) {
-    setTransferMessage('Please select two different locations.')
-    return
-  }
-
-  setIsTransferring(true)
-
-  try {
-    const response = await fetch('/api/stock-operations/transfer', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        productId: transferProductId,
-        sourceLocationId,
-        destinationLocationId,
-        quantity: Number(transferQuantity),
-      }),
-    })
-
-    const data = await response.json()
-
-    if (response.ok) {
-      setTransferMessage(
-        `Transferred ${data.quantityTransferred} units. Source balance: ${data.sourceQuantityAfter}. Destination balance: ${data.destinationQuantityAfter}.`
-      )
-      setTransferQuantity('')
-      setInventoryVersion((version) => version + 1)
-    } else if (response.status === 401) {
-      setUser(null)
-      setLoginMessage('Your session has expired. Please log in again.')
-      setTransferMessage('')
-    } else {
-      setTransferMessage(data.error?.message || 'Unable to transfer stock.')
-    }
-  } catch {
-    setTransferMessage(
-      'No confirmation received. Check the inventory before submitting again.'
-    )
-  } finally {
-    setIsTransferring(false)
-  }
-}
-
-async function handleCorrection(event) {
-  event.preventDefault()
-  setCorrectionMessage('')
-
-  const adjustment = Number(quantityDelta)
-  const reason = correctionReason.trim()
-
-  if (!Number.isInteger(adjustment) || adjustment === 0) {
-    setCorrectionMessage('Please enter a non-zero integer')
-    return
-  }
-
-  if (!reason) {
-    setCorrectionMessage('Please enter a reason')
-    return
-  }
-
-  setIsCorrecting(true)
-
-  try {
-    const response = await fetch('/api/stock-operations/correction', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        productId: correctionProductId,
-        locationId: correctionLocationId,
-        quantityDelta: adjustment,
-        reason,
-      }),
-    })
-
-    const data = await response.json()
-
-    if (response.ok) {
-      setCorrectionMessage(
-        `Correction applied. Balance after correction: ${data.quantityAfter}`
-      )
-      setQuantityDelta('')
-      setCorrectionReason('')
-      setInventoryVersion((version) => version + 1)
-    } else if (response.status === 401) {
-      setUser(null)
-      setLoginMessage('Your session has expired. Please log in again.')
-      setCorrectionMessage('')
-    } else {
-      setCorrectionMessage(
-        data.error?.message || 'Unable to correct stock.'
-      )
-    }
-  } catch {
-    setCorrectionMessage(
-      'No confirmation received. Check the inventory before submitting again.'
-    )
-  } finally {
-    setIsCorrecting(false)
-  }
-}
-
-function handleThresholdSelection(event) {
-  const selectedId = event.target.value
-  const selectedItem = inventory.find((item) => item.id === selectedId)
-
-  setThresholdInventoryId(selectedId)
-  setThresholdValue(
-    selectedItem?.reorderThreshold == null
-      ? ''
-      : String(selectedItem.reorderThreshold)
-  )
-  setThresholdMessage('')
-}
-
-async function handleThresholdSubmit(event) {
-  event.preventDefault()
-  setThresholdMessage('')
-
-  const selectedItem = inventory.find(
-    (item) => item.id === thresholdInventoryId
-  )
-
-  if (!selectedItem) {
-    setThresholdMessage('Please select a product and location.')
-    return
-  }
-
-  const threshold =
-    thresholdValue === '' ? null : Number(thresholdValue)
-
-  if (
-    threshold !== null &&
-    (!Number.isInteger(threshold) ||
-      threshold < 0 ||
-      threshold > 2147483647)
-  ) {
-    setThresholdMessage('Enter a whole number from 0 to 2147483647.')
-    return
-  }
-
-  setIsSavingThreshold(true)
-
-  try {
-    const response = await fetch(
-      `/api/inventory/${selectedItem.productId}/${selectedItem.locationId}/threshold`,
-      {
-        method: 'PATCH',
+    try {
+      const response = await fetch('/api/stock-operations/receive', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          reorderThreshold: threshold,
+          productId: receiveProductId,
+          locationId: receiveLocationId,
+          quantity: Number(receiveQuantity),
         }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setReceiveMessage(
+          `Received ${data.quantityReceived} units. Balance after receipt: ${data.quantityAfter}.`
+        )
+        setReceiveQuantity('')
+        setInventoryVersion((version) => version + 1)
+      } else if (response.status === 401) {
+        setUser(null)
+        setLoginMessage('Your session has expired. Please log in again.')
+        setReceiveMessage('')
+      } else {
+        setReceiveMessage(data.error?.message || 'Unable to receive stock.')
       }
+    } catch {
+      setReceiveMessage(
+        'No confirmation received. Check the inventory before submitting again.'
+      )
+    } finally {
+      setIsReceiving(false)
+    }
+  }
+
+  // Issue stock
+  async function handleIssue(event) {
+    event.preventDefault()
+    setIssueMessage('')
+    setIsIssuing(true)
+
+    try {
+      const response = await fetch('/api/stock-operations/issue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: issueProductId,
+          locationId: issueLocationId,
+          quantity: Number(issueQuantity),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setIssueMessage(
+          `Issued ${data.quantityIssued} units. Balance after issue: ${data.quantityAfter}.`
+        )
+        setIssueQuantity('')
+        setInventoryVersion((version) => version + 1)
+      } else if (response.status === 401) {
+        setUser(null)
+        setLoginMessage('Your session has expired. Please log in again.')
+        setIssueMessage('')
+      } else {
+        setIssueMessage(data.error?.message || 'Unable to issue stock.')
+      }
+    } catch {
+      setIssueMessage(
+        'No confirmation received. Check the inventory before submitting again.'
+      )
+    } finally {
+      setIsIssuing(false)
+    }
+  }
+
+  // Transfer stock
+  async function handleTransfer(event) {
+    event.preventDefault()
+    setTransferMessage('')
+
+    if (sourceLocationId === destinationLocationId) {
+      setTransferMessage('Please select two different locations.')
+      return
+    }
+
+    setIsTransferring(true)
+
+    try {
+      const response = await fetch('/api/stock-operations/transfer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: transferProductId,
+          sourceLocationId,
+          destinationLocationId,
+          quantity: Number(transferQuantity),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setTransferMessage(
+          `Transferred ${data.quantityTransferred} units. Source balance: ${data.sourceQuantityAfter}. Destination balance: ${data.destinationQuantityAfter}.`
+        )
+        setTransferQuantity('')
+        setInventoryVersion((version) => version + 1)
+      } else if (response.status === 401) {
+        setUser(null)
+        setLoginMessage('Your session has expired. Please log in again.')
+        setTransferMessage('')
+      } else {
+        setTransferMessage(data.error?.message || 'Unable to transfer stock.')
+      }
+    } catch {
+      setTransferMessage(
+        'No confirmation received. Check the inventory before submitting again.'
+      )
+    } finally {
+      setIsTransferring(false)
+    }
+  }
+
+  // Correct stock
+  async function handleCorrection(event) {
+    event.preventDefault()
+    setCorrectionMessage('')
+
+    const adjustment = Number(quantityDelta)
+    const reason = correctionReason.trim()
+
+    if (!Number.isInteger(adjustment) || adjustment === 0) {
+      setCorrectionMessage('Please enter a non-zero integer')
+      return
+    }
+
+    if (!reason) {
+      setCorrectionMessage('Please enter a reason')
+      return
+    }
+
+    setIsCorrecting(true)
+
+    try {
+      const response = await fetch('/api/stock-operations/correction', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: correctionProductId,
+          locationId: correctionLocationId,
+          quantityDelta: adjustment,
+          reason,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setCorrectionMessage(
+          `Correction applied. Balance after correction: ${data.quantityAfter}`
+        )
+        setQuantityDelta('')
+        setCorrectionReason('')
+        setInventoryVersion((version) => version + 1)
+      } else if (response.status === 401) {
+        setUser(null)
+        setLoginMessage('Your session has expired. Please log in again.')
+        setCorrectionMessage('')
+      } else {
+        setCorrectionMessage(
+          data.error?.message || 'Unable to correct stock.'
+        )
+      }
+    } catch {
+      setCorrectionMessage(
+        'No confirmation received. Check the inventory before submitting again.'
+      )
+    } finally {
+      setIsCorrecting(false)
+    }
+  }
+
+  // Select threshold
+  function handleThresholdSelection(event) {
+    const selectedId = event.target.value
+    const selectedItem = inventory.find((item) => item.id === selectedId)
+
+    setThresholdInventoryId(selectedId)
+    setThresholdValue(
+      selectedItem?.reorderThreshold == null
+        ? ''
+        : String(selectedItem.reorderThreshold)
+    )
+    setThresholdMessage('')
+  }
+
+  // Save threshold
+  async function handleThresholdSubmit(event) {
+    event.preventDefault()
+    setThresholdMessage('')
+
+    const selectedItem = inventory.find(
+      (item) => item.id === thresholdInventoryId
     )
 
-    const data = await response.json()
-
-    if (response.ok) {
-      setThresholdMessage(
-        data.reorderThreshold === null
-          ? 'Threshold cleared.'
-          : `${selectedItem.location} - Threshold saved: ${selectedItem.name}, ${data.reorderThreshold} units.`
-      )
-      setInventoryVersion((version) => version + 1)
-    } else if (response.status === 401) {
-      setUser(null)
-      setLoginMessage('Your session has expired. Please log in again.')
-      setThresholdMessage('')
-    } else {
-      setThresholdMessage(
-        data.error?.message || 'Unable to save threshold.'
-      )
+    if (!selectedItem) {
+      setThresholdMessage('Please select a product and location.')
+      return
     }
-  } catch {
-    setThresholdMessage('Unable to confirm whether the threshold was saved.')
-  } finally {
-    setIsSavingThreshold(false)
+
+    const threshold =
+      thresholdValue === '' ? null : Number(thresholdValue)
+
+    if (
+      threshold !== null &&
+      (!Number.isInteger(threshold) ||
+        threshold < 0 ||
+        threshold > 2147483647)
+    ) {
+      setThresholdMessage('Enter a whole number from 0 to 2147483647.')
+      return
+    }
+
+    setIsSavingThreshold(true)
+
+    try {
+      const response = await fetch(
+        `/api/inventory/${selectedItem.productId}/${selectedItem.locationId}/threshold`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            reorderThreshold: threshold,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setThresholdMessage(
+          data.reorderThreshold === null
+            ? 'Threshold cleared.'
+            : `${selectedItem.location} - Threshold saved: ${selectedItem.name}, ${data.reorderThreshold} units.`
+        )
+        setInventoryVersion((version) => version + 1)
+      } else if (response.status === 401) {
+        setUser(null)
+        setLoginMessage('Your session has expired. Please log in again.')
+        setThresholdMessage('')
+      } else {
+        setThresholdMessage(
+          data.error?.message || 'Unable to save threshold.'
+        )
+      }
+    } catch {
+      setThresholdMessage('Unable to confirm whether the threshold was saved.')
+    } finally {
+      setIsSavingThreshold(false)
+    }
   }
-}
 
-const activeInventory = inventory.filter(
-  (item) => !item.productArchived && !item.locationArchived
-)
+  const activeInventory = inventory.filter(
+    (item) => !item.productArchived && !item.locationArchived
+  )
 
-const lowStockItems = activeInventory.filter(
-  (item) => item.stockStatus === 'low'
-)
+  const lowStockItems = activeInventory.filter(
+    (item) => item.stockStatus === 'low'
+  )
 
-const outOfStockItems = activeInventory.filter(
-  (item) => item.stockStatus === 'out_of_stock'
-)
+  const outOfStockItems = activeInventory.filter(
+    (item) => item.stockStatus === 'out_of_stock'
+  )
 
   return (
     <div>
-        <header className="top-bar">
-          <h1>Inventory Manager</h1>
+      <header className="top-bar">
+        <h1>Inventory Manager</h1>
 
-          <div className="login-section">
-            {isCheckingLogin ? (
-              <span>Checking login...</span>
-            ) : user ? (
-              <div className="login-area">
-                <span>
-                  {user.name} ({user.role})
-                </span>
+        <div className="login-section">
+          {isCheckingLogin ? (
+            <span>Checking login...</span>
+          ) : user ? (
+            <div className="login-area">
+              <span>
+                {user.name} ({user.role})
+              </span>
 
-                <button type="button" onClick={handleLogout}>
-                  Logout
-                </button>
-              </div>
-            ) : (
-              <form className="login-area" onSubmit={handleLogin}>
-                <label htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="username"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
+              <button type="button" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <form className="login-area" onSubmit={handleLogin}>
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
 
-                <label htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
 
-                <button type="submit" disabled={isLoggingIn}>
-                  {isLoggingIn ? 'Logging in...' : 'Login'}
-                </button>
-              </form>
-            )}
+              <button type="submit" disabled={isLoggingIn}>
+                {isLoggingIn ? 'Logging in...' : 'Login'}
+              </button>
+            </form>
+          )}
 
-            {loginMessage && (
-              <p className="login-message" role="status">
-                {loginMessage}
-              </p>
-            )}
-          </div>
-        </header>
+          {loginMessage && (
+            <p className="login-message" role="status">
+              {loginMessage}
+            </p>
+          )}
+        </div>
+      </header>
 
-        <main className="page-content">
+      <main className="page-content">
         {!isCheckingLogin && !user && (
           <div className="login-notice">
             <p>Please log in first.</p>
@@ -833,43 +845,43 @@ const outOfStockItems = activeInventory.filter(
             )}
 
             <h2>Movement History</h2>
-              <p role="status">{historyMessage}</p>
-              <div className="history-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>Product</th>
-                      <th>Location</th>
-                      <th>Operation</th>
-                      <th>Change</th>
-                      <th>Balance After</th>
-                      <th>User</th>
-                      <th>Reason</th>
-                    </tr>
-                  </thead>
+            <p role="status">{historyMessage}</p>
+            <div className="history-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Product</th>
+                    <th>Location</th>
+                    <th>Operation</th>
+                    <th>Change</th>
+                    <th>Balance After</th>
+                    <th>User</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
 
-                  <tbody>
-                    {movements.map((movement) => (
-                      <tr key={movement.id}>
-                        <td>{new Date(movement.createdAt).toLocaleString()}</td>
-                        <td>
-                          {movement.sku} - {movement.name}
-                        </td>
-                        <td>{movement.location}</td>
-                        <td>{movement.operation}</td>
-                        <td>
-                          {movement.quantityDelta > 0 ? '+' : ''}
-                          {movement.quantityDelta}
-                        </td>
-                        <td>{movement.quantityAfter ?? '—'}</td>
-                        <td>{movement.actorName}</td>
-                        <td>{movement.reason || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                <tbody>
+                  {movements.map((movement) => (
+                    <tr key={movement.id}>
+                      <td>{new Date(movement.createdAt).toLocaleString()}</td>
+                      <td>
+                        {movement.sku} - {movement.name}
+                      </td>
+                      <td>{movement.location}</td>
+                      <td>{movement.operation}</td>
+                      <td>
+                        {movement.quantityDelta > 0 ? '+' : ''}
+                        {movement.quantityDelta}
+                      </td>
+                      <td>{movement.quantityAfter ?? '—'}</td>
+                      <td>{movement.actorName}</td>
+                      <td>{movement.reason || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
       </main>
