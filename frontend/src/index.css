@@ -1,0 +1,171 @@
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f5f5f5;
+  color: #282828;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+p {
+  color: #555;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+}
+
+th,
+td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+}
+
+th {
+  background-color: #eee;
+}
+
+input {
+  padding: 10px;
+  margin-bottom: 16px;
+  width: 280px;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px 20px;
+  background-color: #9bcff4;
+  border-bottom: 1px solid #b3daf9;
+}
+
+.top-bar h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.login-area {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.login-area input {
+  width: 120px;
+  padding: 6px 8px;
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+.login-area button {
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.login-section {
+  margin-left: auto;
+}
+
+.login-message {
+  margin: 6px 0 0;
+  font-size: 13px;
+  text-align: right;
+}
+
+.stock-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stock-form select,
+.stock-form input,
+.stock-form button {
+  padding: 8px;
+  font-size: 14px;
+}
+
+.stock-form input {
+  width: 100px;
+  margin-bottom: 0;
+}
+
+.stock-form button {
+  cursor: pointer;
+}
+
+.stock-form p {
+  width: 100%;
+  margin: 0;
+}
+
+.login-notice {
+  min-height: 70vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+}
+
+.login-notice p {
+  font-size: 28px;
+}
+
+.page-content {
+  padding: 24px 40px;
+}
+
+.history-table {
+  overflow-x: auto;
+}
+
+.dashboard-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.dashboard-card {
+  min-width: 160px;
+  padding: 16px 24px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.dashboard-card h3 {
+  margin: 0 0 8px;
+}
+
+.dashboard-card p {
+  margin: 0;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+button.dashboard-card {
+  cursor: pointer;
+}
+
+.location-filter-label {
+  margin-left: 24px;
+  margin-right: 10px;
+}
