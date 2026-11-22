@@ -31,6 +31,7 @@ export function createApp({ pool, logger, sessionSecret, isProduction = false, s
     const sessions = sessionMiddleware(pool, sessionSecret, isProduction);
     // Kept so shutdown (and tests) can stop the store's pruning timer.
     app.locals.sessionStore = sessions.store;
+    app.locals.sessionMiddleware = sessions.middleware;
     app.use('/api', sessions.middleware);
   }
   app.use('/api', apiRouter());

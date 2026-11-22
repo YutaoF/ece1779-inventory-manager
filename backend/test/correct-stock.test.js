@@ -92,12 +92,12 @@ describe('correctStock with PostgreSQL', { concurrency: false, timeout: 20_000 }
     const request = await correctionRequest();
     const decrease = { ...request, quantityDelta: -6 };
     const empty = await readStockState(pool, request);
-    await assert.rejects(correctStock(pool, decrease), { code: 'INSUFFICIENT_STOCK' });
+    await assert.rejects(correctStock(pool, decrease), { code: 'INSUFFICIENT_STOCK', details: { available: 0 } });
     assert.deepEqual(await readStockState(pool, request), empty);
 
     await correctStock(pool, { ...request, clientRequestKey: randomUUID() });
     const stocked = await readStockState(pool, request);
-    await assert.rejects(correctStock(pool, decrease), { code: 'INSUFFICIENT_STOCK' });
+    await assert.rejects(correctStock(pool, decrease), { code: 'INSUFFICIENT_STOCK', details: { available: 5 } });
     assert.deepEqual(await readStockState(pool, request), stocked);
 
     await correctStock(pool, { ...request, clientRequestKey: randomUUID(), quantityDelta: 1 });

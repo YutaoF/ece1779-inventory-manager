@@ -182,7 +182,9 @@ describe('transferStock with PostgreSQL', { concurrency: false, timeout: 20_000 
     const other = { ...request, destinationLocationId: secondDestination.rows[0].id, clientRequestKey: randomUUID() };
     const outcomes = await transferConcurrently(request, other);
     assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1);
-    assert.equal(outcomes.find((outcome) => outcome.status === 'rejected').reason.code, 'INSUFFICIENT_STOCK');
+    const error = outcomes.find((outcome) => outcome.status === 'rejected').reason;
+    assert.equal(error.code, 'INSUFFICIENT_STOCK');
+    assert.deepEqual(error.details, { available: 2 });
     const winner = outcomes[0].status === 'fulfilled' ? request : other;
     const loser = outcomes[0].status === 'fulfilled' ? other : request;
     const winnerState = await readTransferState(winner);

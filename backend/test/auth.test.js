@@ -195,4 +195,24 @@ describe('auth with PostgreSQL', () => {
     );
     assert.equal(actor.rows[0].actor_id, user.id);
   });
+
+  it('returns the available quantity in the 409 response when an issue exceeds stock', async () => {
+    const { productId, locationId } = await createStockFixture(db.pool);
+    const user = await createUser();
+    const { cookie } = await login(user.email);
+    const issue = { productId, locationId, quantity: 5 };
+
+    async function expectInsufficientStock(available) {
+      const response = await post(server.url, '/api/stock-operations/issue', issue, cookie);
+      assert.equal(response.status, 409);
+      const { error } = await response.json();
+      assert.equal(error.code, 'insufficient_stock');
+      assert.deepEqual(error.details, { available });
+    }
+
+    await expectInsufficientStock(0);
+    const receipt = await post(server.url, '/api/stock-operations/receive', { ...issue, quantity: 2 }, cookie);
+    assert.equal(receipt.status, 200);
+    await expectInsufficientStock(2);
+  });
 });

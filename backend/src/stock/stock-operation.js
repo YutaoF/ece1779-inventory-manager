@@ -144,6 +144,13 @@ async function recordMovement(client, operationId, operationType, balance, quant
  * IDs in the result are strings so PostgreSQL bigint values keep their precision.
  */
 export async function applyStockChange(pool, input, operationType) {
+  const { result } = await applyStockChangeWithOutcome(pool, input, operationType);
+  return result;
+}
+
+// The HTTP handler also needs to know whether this transaction changed inventory.
+// The public service result and the saved idempotency response keep their original shape.
+export async function applyStockChangeWithOutcome(pool, input, operationType) {
   if (!Object.hasOwn(resultQuantityFields, operationType)) {
     throw new TypeError('Unsupported stock operation.');
   }
@@ -198,7 +205,7 @@ export async function applyStockChange(pool, input, operationType) {
       }
 
       await client.query('COMMIT');
-      return original.saved_result;
+      return { result: original.saved_result, applied: false };
     }
 
     const product = await client.query(
@@ -235,7 +242,7 @@ export async function applyStockChange(pool, input, operationType) {
       [operationId, result],
     );
     await client.query('COMMIT');
-    return result;
+    return { result, applied: true };
   } catch (error) {
     try {
       await client.query('ROLLBACK');

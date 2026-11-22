@@ -85,6 +85,7 @@ describe('issueStock with PostgreSQL', { concurrency: false, timeout: 20_000 }, 
       await assert.rejects(issueStock(pool, request), (error) => {
         assert.ok(error instanceof StockError);
         assert.equal(error.code, 'INSUFFICIENT_STOCK');
+        assert.deepEqual(error.details, { available: initialQuantity ?? 0 });
         return true;
       });
       assert.deepEqual(await readState(request), before);
@@ -225,6 +226,7 @@ describe('issueStock with PostgreSQL', { concurrency: false, timeout: 20_000 }, 
     assert.equal(succeeded.length, 1);
     assert.equal(failed.length, 1);
     assert.equal(failed[0].reason.code, 'INSUFFICIENT_STOCK');
+    assert.deepEqual(failed[0].reason.details, { available: 1 });
     assert.equal(succeeded[0].value.quantityAfter, 1);
     const firstState = await readState(request);
     const secondState = await readState(secondRequest);
