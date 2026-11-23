@@ -44,6 +44,9 @@ In server code, throw `new HttpError(status, code, message, details)` from `back
 | `POST` | `/api/auth/login` | none | `200 {"user":{...}}` and the session cookie. See [Auth](#auth). |
 | `POST` | `/api/auth/logout` | none | `204`; deletes the session (also `204` when not signed in). |
 | `GET` | `/api/auth/me` | signed in | `200 {"user":{...}}`, or `401 unauthenticated`. |
+| `GET` / `POST` | `/api/categories` | Staff or manager for reads, manager for creates | List or create a category. See [Catalog](#catalog). |
+| `GET` / `POST` | `/api/products`, `/api/locations` | Staff or manager for reads, manager for creates | List catalog records or create one. See [Catalog](#catalog). |
+| `PATCH` / `DELETE` | `/api/products/:id`, `/api/locations/:id` | Manager | Edit or archive one record. See [Catalog](#catalog). |
 | `GET` | `/api/inventory` | Staff or manager | `200 {"inventory":[...]}` with one current balance per tracked product and location. See [Inventory](#inventory). |
 | `PATCH` | `/api/inventory/:productId/:locationId/threshold` | Manager | `200 {"productId":"7","locationId":"2","reorderThreshold":5}`. See [Reorder thresholds](#reorder-thresholds). |
 | `GET` | `/api/movements` | Staff or manager | `200 {"movements":[...]}` with one row per committed stock change at a location. See [Movement history](#movement-history). |
@@ -83,6 +86,41 @@ Signing in replaces any previous session. `role` is `"manager"` or `"staff"`; us
 **`POST /api/auth/logout`** takes no body and returns `204`.
 
 Any request can return `401 unauthenticated` once the 8-hour session expires; send the user back to the login page when that happens.
+
+### Catalog
+
+Use `GET /api/products` and `GET /api/locations` for product and location pickers. A new catalog record appears immediately, so a manager can set a threshold before the first receipt.
+
+| Endpoint | Input | Success |
+| --- | --- | --- |
+| `GET /api/categories` | No body | `200 {"categories":[{"id":"2","name":"Grains"}]}` |
+| `POST /api/categories` | `{"name":"Grains"}` | `201 {"category":{"id":"2","name":"Grains"}}` |
+| `GET /api/products` | Optional query fields `name`, `sku`, `categoryId`, `archived` | `200 {"products":[...]}` |
+| `POST /api/products` | `{"sku":"RICE01","name":"Rice","categoryId":"2","description":"5 kg bag"}` | `201 {"product":{...}}` |
+| `PATCH /api/products/:id` | One or more of `sku`, `name`, `categoryId`, `description` | `200 {"product":{...}}` |
+| `DELETE /api/products/:id` | No body | `200 {"product":{...}}` with `archivedAt` set |
+| `GET /api/locations` | Optional query field `archived` | `200 {"locations":[...]}` |
+| `POST /api/locations` | `{"name":"Pantry","description":"Ground floor"}` | `201 {"location":{...}}` |
+| `PATCH /api/locations/:id` | One or both of `name`, `description` | `200 {"location":{...}}` |
+| `DELETE /api/locations/:id` | No body | `200 {"location":{...}}` with `archivedAt` set |
+
+Create the category first, then use its returned ID in `POST /api/products`. A successful response includes the new product and its ID.
+
+```json
+{"product":{"id":"7","sku":"RICE01","name":"Rice","categoryId":"2","description":"5 kg bag","archivedAt":null}}
+```
+
+A location has `id`, `name`, `description`, and `archivedAt`. IDs are decimal strings. A product's category must exist. SKUs use ASCII letters and digits and are case-sensitive. Category names are also case-sensitive and unique. Locations can share a name, so use their IDs when receiving stock. Descriptions are optional on create. Omit a field on edit to keep its value, or send `"description": null` to clear it.
+
+Lists are sorted by name, then ID. Products and locations default to active records. Use `?archived=true` for archived records only. Product filters combine: `GET /api/products?name=rice&categoryId=2` matches a case-insensitive name substring within category 2. The SKU filter matches exactly.
+
+Archiving keeps balances and movement history. Repeating the archive returns the original archive timestamp. A committed edit or first archive of a product or location sends the existing `inventory:changed` notification so open inventory and movement views can refresh.
+
+Editing an archived record returns `409 product_archived` or `409 location_archived`. Other errors include `400 validation_failed` for invalid fields, `403 forbidden` for staff writes, `404 not_found` for an unknown record or category ID, and `409 duplicate_sku` or `409 duplicate_category` for a uniqueness conflict.
+
+### Live updates
+
+Signed-in browsers listen for the payload-free `inventory:changed` event on Socket.IO's `/api/socket.io/` path using WebSocket transport. Fetch `GET /api/inventory` and `GET /api/movements` on each connection and after a notification. [Implementation and two-replica demo](real-time-updates.md)
 
 ### Inventory
 
@@ -135,9 +173,9 @@ Rows are sorted by product name, location name, product ID and location ID. Use 
 
 #### Reorder thresholds
 
-**`PATCH /api/inventory/:productId/:locationId/threshold`** sets the reorder threshold for one tracked product at one active location. The product must also be active. Only a signed-in manager can make this change. A threshold edit updates the dashboard status on the next read and creates no stock movement.
+**`PATCH /api/inventory/:productId/:locationId/threshold`** lets a signed-in manager set or clear a threshold for one active product at one active location. Setting a number, including `0`, starts tracking the pair at quantity `0` if it has no inventory row. An existing balance keeps its quantity. Threshold changes create no stock movements.
 
-For example, this request sets the Pantry threshold for rice to 5 units.
+For example, a manager selects Rice (`7`) and Pantry (`2`) from the catalog lists and sets a threshold of 5 before the first delivery.
 
 ```http
 PATCH /api/inventory/7/2/threshold
@@ -146,7 +184,9 @@ Content-Type: application/json
 { "reorderThreshold": 5 }
 ```
 
-Send exactly one body field. `reorderThreshold` accepts a JSON integer from `0` through `2147483647`, or `null` to clear it. Both path IDs use the same positive decimal range as the inventory filters. A successful edit returns HTTP `200` with the saved setting.
+Send exactly one body field. `reorderThreshold` accepts a JSON integer from `0` through `2147483647`, or `null` to clear it. The default is `null`. Clearing a threshold keeps an existing inventory row. For an active pair with no row, clearing returns `200` with `reorderThreshold: null` and leaves the pair untracked. Both path IDs use the same positive decimal range as the inventory filters.
+
+The example returns HTTP `200` with the saved setting. Rice now appears under `out_of_stock` at the Pantry. Receiving 3 units there keeps the threshold at 5 and changes the status to `low`.
 
 ```json
 { "productId": "7", "locationId": "2", "reorderThreshold": 5 }
@@ -157,8 +197,8 @@ Send exactly one body field. `reorderThreshold` accepts a JSON integer from `0` 
 | `400 validation_failed` | Invalid path ID, missing or extra field, or invalid threshold. |
 | `401 unauthenticated` | Missing or expired session, or the signed-in account was removed or disabled. |
 | `403 forbidden` | The signed-in account is staff. |
-| `404 not_found` | The database has no inventory row for this product/location pair. |
-| `409 product_archived` or `409 location_archived` | The tracked product or its location was archived. |
+| `404 not_found` | The product ID or location ID does not exist. |
+| `409 product_archived` or `409 location_archived` | The selected product or location is archived. |
 
 ### Movement history
 
@@ -205,9 +245,6 @@ Each prefix is one folder in `backend/src/` with its own router, mounted in `bac
 | Prefix | Covers | Roles |
 | --- | --- | --- |
 | `/api/users` | create accounts, change role, disable | manager |
-| `/api/categories` | list, create | read: any; write: manager |
-| `/api/products` | list/search, create, edit, archive | read: any; write: manager |
-| `/api/locations` | list, create, edit, archive | read: any; write: manager |
 
 ### Retried stock requests
 
