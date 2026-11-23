@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   app:
-    image: registry.digitalocean.com/ece1779-inventory/inventory-app:v1
+    image: registry.digitalocean.com/ece1779-inventory/inventory-app:v3
     environment:
       NODE_ENV: production
       HOST: "0.0.0.0"
