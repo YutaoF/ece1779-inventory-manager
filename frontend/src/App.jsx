@@ -69,16 +69,70 @@ function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isChec
   const [correctionMessage, setCorrectionMessage] = useState('')
   const [isCorrecting, setIsCorrecting] = useState(false)
   const [inventory, setInventory] = useState([])
+  const [products, setProducts] = useState([])
+  const [locations, setLocations] = useState([])
+  const [catalogMessage, setCatalogMessage] = useState('')
   const [inventoryMessage, setInventoryMessage] = useState('Loading inventory...')
   const [inventoryVersion, setInventoryVersion] = useState(0)
   const [movements, setMovements] = useState([])
   const [historyMessage, setHistoryMessage] = useState('Loading history...')
-  const [thresholdInventoryId, setThresholdInventoryId] = useState('')
+  const [thresholdProductId, setThresholdProductId] = useState('')
+  const [thresholdLocationId, setThresholdLocationId] = useState('')
   const [thresholdValue, setThresholdValue] = useState('')
   const [thresholdMessage, setThresholdMessage] = useState('')
   const [isSavingThreshold, setIsSavingThreshold] = useState(false)
   const [dashboardView, setDashboardView] = useState('')
   const [locationFilter, setLocationFilter] = useState('')
+
+  // Load products and locations
+  useEffect(() => {
+    if (!user || user.role !== 'manager') return
+
+    const request = new AbortController()
+
+    async function loadCatalog() {
+      setCatalogMessage('Loading products and locations...')
+
+      try {
+        const [productsResponse, locationsResponse] = await Promise.all([
+          fetch('/api/products', { signal: request.signal }),
+          fetch('/api/locations', { signal: request.signal }),
+        ])
+
+        if (request.signal.aborted) return
+
+        if (
+          productsResponse.status === 401 ||
+          locationsResponse.status === 401
+        ) {
+          setUser(null)
+          setLoginMessage('Please log in again.')
+          return
+        }
+
+        if (!productsResponse.ok || !locationsResponse.ok) {
+          throw new Error('Unable to load products and locations.')
+        }
+
+        const productsData = await productsResponse.json()
+        const locationsData = await locationsResponse.json()
+
+        if (request.signal.aborted) return
+
+        setProducts(productsData.products)
+        setLocations(locationsData.locations)
+        setCatalogMessage('')
+      } catch {
+        if (!request.signal.aborted) {
+          setCatalogMessage('Unable to load products and locations.')
+        }
+      }
+    }
+
+    loadCatalog()
+
+    return () => request.abort()
+  }, [user, inventoryVersion, setUser, setLoginMessage])
 
   useEffect(() => {
     if (!user) return
@@ -458,11 +512,16 @@ function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isChec
   }
 
   // Select threshold
-  function handleThresholdSelection(event) {
-    const selectedId = event.target.value
-    const selectedItem = inventory.find((item) => item.id === selectedId)
+  function handleThresholdSelection(productId, locationId) {
+    setThresholdProductId(productId)
+    setThresholdLocationId(locationId)
 
-    setThresholdInventoryId(selectedId)
+    const selectedItem = inventory.find(
+      (item) =>
+        item.productId === productId &&
+        item.locationId === locationId
+    )
+
     setThresholdValue(
       selectedItem?.reorderThreshold == null
         ? ''
@@ -476,17 +535,13 @@ function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isChec
     event.preventDefault()
     setThresholdMessage('')
 
-    const selectedItem = inventory.find(
-      (item) => item.id === thresholdInventoryId
-    )
-
-    if (!selectedItem) {
+    if (!thresholdProductId || !thresholdLocationId) {
       setThresholdMessage('Please select a product and location.')
       return
     }
 
     const threshold =
-      thresholdValue === '' ? null : Number(thresholdValue)
+      thresholdValue.trim() === '' ? null : Number(thresholdValue)
 
     if (
       threshold !== null &&
@@ -502,7 +557,7 @@ function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isChec
 
     try {
       const response = await fetch(
-        `/api/inventory/${selectedItem.productId}/${selectedItem.locationId}/threshold`,
+        `/api/inventory/${thresholdProductId}/${thresholdLocationId}/threshold`,
         {
           method: 'PATCH',
           headers: {
@@ -520,20 +575,21 @@ function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isChec
         setThresholdMessage(
           data.reorderThreshold === null
             ? 'Threshold cleared.'
-            : `${selectedItem.location} - Threshold saved: ${selectedItem.name}, ${data.reorderThreshold} units.`
+            : `Threshold set to ${data.reorderThreshold}.`
         )
         setInventoryVersion((version) => version + 1)
       } else if (response.status === 401) {
         setUser(null)
-        setLoginMessage('Your session has expired. Please log in again.')
-        setThresholdMessage('')
+        setLoginMessage('Please log in again.')
       } else {
         setThresholdMessage(
           data.error?.message || 'Unable to save threshold.'
         )
       }
     } catch {
-      setThresholdMessage('Unable to confirm whether the threshold was saved.')
+      setThresholdMessage(
+        'No confirmation received. Check the threshold before submitting again.'
+      )
     } finally {
       setIsSavingThreshold(false)
     }
@@ -987,22 +1043,48 @@ function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isChec
                 <h2>Reorder Threshold</h2>
 
                 <form className="stock-form" onSubmit={handleThresholdSubmit}>
-                  <label htmlFor="threshold-inventory">Inventory</label>
-                  <select
-                    id="threshold-inventory"
-                    required
-                    value={thresholdInventoryId}
-                    onChange={handleThresholdSelection}
-                  >
-                    <option value="">Select product and location</option>
+                  <p role="status">{catalogMessage}</p>
 
-                    {inventory
-                      .filter((item) => !item.productArchived && !item.locationArchived)
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.sku} - {item.name} / {item.location}
-                        </option>
-                      ))}
+                  <label htmlFor="threshold-product">Product</label>
+                  <select
+                    id="threshold-product"
+                    required
+                    disabled={isSavingThreshold}
+                    value={thresholdProductId}
+                    onChange={(event) =>
+                      handleThresholdSelection(
+                        event.target.value,
+                        thresholdLocationId
+                      )
+                    }
+                  >
+                    <option value="">Select product</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.sku} - {product.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label htmlFor="threshold-location">Location</label>
+                  <select
+                    id="threshold-location"
+                    required
+                    disabled={isSavingThreshold}
+                    value={thresholdLocationId}
+                    onChange={(event) =>
+                      handleThresholdSelection(
+                        thresholdProductId,
+                        event.target.value
+                      )
+                    }
+                  >
+                    <option value="">Select location</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
                   </select>
 
                   <label htmlFor="threshold-value">Threshold</label>
@@ -1012,6 +1094,7 @@ function InventoryManager({ user, setUser, loginMessage, setLoginMessage, isChec
                     min="0"
                     max="2147483647"
                     step="1"
+                    disabled={isSavingThreshold}
                     value={thresholdValue}
                     onChange={(event) => setThresholdValue(event.target.value)}
                   />
