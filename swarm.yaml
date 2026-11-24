@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   app:
-    image: registry.digitalocean.com/ece1779-inventory/inventory-app:v3
+    image: registry.digitalocean.com/ece1779-inventory/inventory-app:v4
     environment:
       NODE_ENV: production
       HOST: "0.0.0.0"
@@ -63,7 +63,7 @@ services:
         protocol: tcp
         mode: ingress
     configs:
-      - source: nginx_config
+      - source: nginx_config_v3
         target: /etc/nginx/conf.d/default.conf
     networks:
       - inventory_net
@@ -84,5 +84,5 @@ secrets:
     external: true
 
 configs:
-  nginx_config:
+  nginx_config_v3:
     external: true
